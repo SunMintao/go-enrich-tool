@@ -1,0 +1,127 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 800px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#aec7e8", "id": 0, "label": "photosynthesis", "shape": "dot", "size": 20, "title": "GO:GO:0015979\u003cbr\u003ephotosynthesis\u003cbr\u003eP=5.86e-12\u003cbr\u003eCluster=1"}, {"color": "#1f77b4", "id": 1, "label": "organic acid metabolic process", "shape": "dot", "size": 20, "title": "GO:GO:0006082\u003cbr\u003eorganic acid metabolic process\u003cbr\u003eP=4.80e-07\u003cbr\u003eCluster=0"}, {"color": "#ff7f0e", "id": 2, "label": "reductive pentose-phosphate cy", "shape": "dot", "size": 20, "title": "GO:GO:0019253\u003cbr\u003ereductive pentose-phosphate cycle\u003cbr\u003eP=1.90e-06\u003cbr\u003eCluster=2"}, {"color": "#1f77b4", "id": 3, "label": "oxoacid metabolic process", "shape": "dot", "size": 20, "title": "GO:GO:0043436\u003cbr\u003eoxoacid metabolic process\u003cbr\u003eP=8.72e-06\u003cbr\u003eCluster=0"}, {"color": "#aec7e8", "id": 4, "label": "carbon fixation", "shape": "dot", "size": 20, "title": "GO:GO:0015977\u003cbr\u003ecarbon fixation\u003cbr\u003eP=1.14e-05\u003cbr\u003eCluster=1"}, {"color": "#1f77b4", "id": 5, "label": "lipid metabolic process", "shape": "dot", "size": 20, "title": "GO:GO:0006629\u003cbr\u003elipid metabolic process\u003cbr\u003eP=1.49e-05\u003cbr\u003eCluster=0"}, {"color": "#1f77b4", "id": 6, "label": "small molecule metabolic proce", "shape": "dot", "size": 20, "title": "GO:GO:0044281\u003cbr\u003esmall molecule metabolic process\u003cbr\u003eP=1.54e-05\u003cbr\u003eCluster=0"}, {"color": "#1f77b4", "id": 7, "label": "monocarboxylic acid metabolic ", "shape": "dot", "size": 20, "title": "GO:GO:0032787\u003cbr\u003emonocarboxylic acid metabolic process\u003cbr\u003eP=1.81e-05\u003cbr\u003eCluster=0"}, {"color": "#aec7e8", "id": 8, "label": "photosynthesis, light reaction", "shape": "dot", "size": 20, "title": "GO:GO:0019684\u003cbr\u003ephotosynthesis, light reaction\u003cbr\u003eP=3.19e-05\u003cbr\u003eCluster=1"}, {"color": "#ff7f0e", "id": 9, "label": "cell wall macromolecule catabo", "shape": "dot", "size": 20, "title": "GO:GO:0016998\u003cbr\u003ecell wall macromolecule catabolic process\u003cbr\u003eP=3.42e-05\u003cbr\u003eCluster=2"}, {"color": "#1f77b4", "id": 10, "label": "organic acid biosynthetic proc", "shape": "dot", "size": 20, "title": "GO:GO:0016053\u003cbr\u003eorganic acid biosynthetic process\u003cbr\u003eP=3.82e-05\u003cbr\u003eCluster=0"}, {"color": "#aec7e8", "id": 11, "label": "photosystem II assembly", "shape": "dot", "size": 20, "title": "GO:GO:0010207\u003cbr\u003ephotosystem II assembly\u003cbr\u003eP=4.24e-05\u003cbr\u003eCluster=1"}, {"color": "#ff7f0e", "id": 12, "label": "carboxylic acid metabolic proc", "shape": "dot", "size": 20, "title": "GO:GO:0019752\u003cbr\u003ecarboxylic acid metabolic process\u003cbr\u003eP=4.88e-05\u003cbr\u003eCluster=2"}, {"color": "#1f77b4", "id": 13, "label": "systemic acquired resistance, ", "shape": "dot", "size": 20, "title": "GO:GO:0009862\u003cbr\u003esystemic acquired resistance, salicylic acid mediated signaling pathway\u003cbr\u003eP=1.26e-04\u003cbr\u003eCluster=0"}]);
+                  edges = new vis.DataSet([{"from": 0, "title": "Sim: 0.44", "to": 8, "value": 0.4393939393939394}, {"from": 1, "title": "Sim: 0.92", "to": 3, "value": 0.9234972677595629}, {"from": 1, "title": "Sim: 0.76", "to": 6, "value": 0.756198347107438}, {"from": 1, "title": "Sim: 0.54", "to": 7, "value": 0.5355191256830601}, {"from": 1, "title": "Sim: 0.51", "to": 10, "value": 0.5136612021857924}, {"from": 1, "title": "Sim: 0.84", "to": 12, "value": 0.8415300546448088}, {"from": 2, "title": "Sim: 0.92", "to": 4, "value": 0.9230769230769231}, {"from": 3, "title": "Sim: 0.70", "to": 6, "value": 0.6983471074380165}, {"from": 3, "title": "Sim: 0.58", "to": 7, "value": 0.5798816568047337}, {"from": 3, "title": "Sim: 0.45", "to": 10, "value": 0.44505494505494503}, {"from": 3, "title": "Sim: 0.91", "to": 12, "value": 0.9112426035502958}, {"from": 5, "title": "Sim: 0.32", "to": 6, "value": 0.3167701863354037}, {"from": 5, "title": "Sim: 0.32", "to": 7, "value": 0.32075471698113206}, {"from": 6, "title": "Sim: 0.40", "to": 7, "value": 0.4049586776859504}, {"from": 6, "title": "Sim: 0.39", "to": 10, "value": 0.3884297520661157}, {"from": 6, "title": "Sim: 0.64", "to": 12, "value": 0.6363636363636364}, {"from": 7, "title": "Sim: 0.36", "to": 10, "value": 0.3617021276595745}, {"from": 7, "title": "Sim: 0.64", "to": 12, "value": 0.6363636363636364}, {"from": 8, "title": "Sim: 0.34", "to": 11, "value": 0.3448275862068966}, {"from": 10, "title": "Sim: 0.49", "to": 12, "value": 0.48502994011976047}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {"physics": {"enabled": true, "stabilization": {"iterations": 100}}};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>

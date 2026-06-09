@@ -1,0 +1,12 @@
+README.md
+pyproject.toml
+src/go_enrich/__init__.py
+src/go_enrich/cli.py
+src/go_enrich/core.py
+src/go_enrich/enrichment.py
+src/go_enrich_tool.egg-info/PKG-INFO
+src/go_enrich_tool.egg-info/SOURCES.txt
+src/go_enrich_tool.egg-info/dependency_links.txt
+src/go_enrich_tool.egg-info/entry_points.txt
+src/go_enrich_tool.egg-info/requires.txt
+src/go_enrich_tool.egg-info/top_level.txt

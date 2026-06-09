@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "go-enrich-tool"
+version = "0.1.0"
+description = "GO enrichment analysis and clustering tool based on gene set overlap"
+authors = [
+    {name = "Sun Mintao", email = "sunmintao@caas.cn"},
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+dependencies = [
+    "pandas>=2.0.0",
+    "numpy>=1.18.0",
+    "matplotlib>=3.0.0",
+    "seaborn>=0.10.0",
+    "scikit-learn>=0.22.0",
+    "umap-learn>=0.5.0",
+    "hdbscan>=0.8.0",
+    "pyvis>=0.3.0",
+    "wordcloud>=1.8.0",
+    "scipy>=1.4.0",
+    "statsmodels>=0.11.0",
+    "requests>=2.20.0",
+    "openpyxl>=3.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/SunMintao/go-enrich-tool"
+Repository = "https://github.com/SunMintao/go-enrich-tool.git"
+
+[project.scripts]
+go-enrich = "go_enrich.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
