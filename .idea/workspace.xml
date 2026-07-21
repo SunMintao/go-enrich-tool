@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="73e71f99-28a7-485f-8767-b09a16f571c9" name="更改" comment="">
+      <change afterPath="$PROJECT_DIR$/src/go_enrich/convert.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/go_enrich/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/go-enrichment-tool.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/go_enrich_tool-0.1.0-py3-none-any.whl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/go_enrich_tool-0.1.0.tar.gz" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/clustering_output_bubble.png" beforeDir="false" afterPath="$PROJECT_DIR$/examples/clustering_output_bubble.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/clustering_output_cytoscape_edges.txt" beforeDir="false" afterPath="$PROJECT_DIR$/examples/clustering_output_cytoscape_edges.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/clustering_output_cytoscape_nodes.txt" beforeDir="false" afterPath="$PROJECT_DIR$/examples/clustering_output_cytoscape_nodes.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/clustering_output_heatmap.png" beforeDir="false" afterPath="$PROJECT_DIR$/examples/clustering_output_heatmap.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/clustering_output_network.html" beforeDir="false" afterPath="$PROJECT_DIR$/examples/clustering_output_network.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/clustering_output_network.png" beforeDir="false" afterPath="$PROJECT_DIR$/examples/clustering_output_network.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/clustering_output_results.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/examples/clustering_output_results.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/clustering_output_scatter.png" beforeDir="false" afterPath="$PROJECT_DIR$/examples/clustering_output_scatter.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/clustering_output_wordclouds/cluster_0_wordcloud.png" beforeDir="false" afterPath="$PROJECT_DIR$/examples/clustering_output_wordclouds/cluster_0_wordcloud.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/clustering_output_wordclouds/cluster_1_wordcloud.png" beforeDir="false" afterPath="$PROJECT_DIR$/examples/clustering_output_wordclouds/cluster_1_wordcloud.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/clustering_output_wordclouds/cluster_2_wordcloud.png" beforeDir="false" afterPath="$PROJECT_DIR$/examples/clustering_output_wordclouds/cluster_2_wordcloud.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/data/id.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/examples/data/id.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/enrich_result.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/examples/enrich_result.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/run_clustering.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/run_enrichment.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/go_enrich/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/go_enrich/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/go_enrich/cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/go_enrich/cli.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/go_enrich/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/go_enrich/core.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/go_enrich_tool.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/src/go_enrich_tool.egg-info/PKG-INFO" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/go_enrich_tool.egg-info/SOURCES.txt" beforeDir="false" afterPath="$PROJECT_DIR$/src/go_enrich_tool.egg-info/SOURCES.txt" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3
+}</component>
+  <component name="ProjectId" id="3EspAqos3Ak2tVOfcFU4TvXUySO" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.cli.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/bioinformatic-packages&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RunManager">
+    <configuration name="cli" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="go-enrichment-tool" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/go_enrich" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/go_enrich/cli.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.cli" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-7c0b70fcd90d-JavaScript-PY-242.21829.153" />
+        <option value="bundled-python-sdk-464836ebc622-b74155a9e76b-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.21829.153" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="默认任务">
+      <changelist id="73e71f99-28a7-485f-8767-b09a16f571c9" name="更改" comment="" />
+      <created>1780976991200</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1780976991200</updated>
+      <workItem from="1783311278437" duration="93000" />
+      <workItem from="1783311597654" duration="1021000" />
+      <workItem from="1783567648591" duration="422000" />
+      <workItem from="1783568094236" duration="23000" />
+      <workItem from="1783568117844" duration="22000" />
+      <workItem from="1783568140855" duration="20000" />
+      <workItem from="1784604501630" duration="25000" />
+      <workItem from="1784604534538" duration="25000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>

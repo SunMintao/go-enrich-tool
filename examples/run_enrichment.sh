@@ -1,2 +1,0 @@
-#!/bin/bash
-go-enrich enrich --go-anno examples/data/go_annotation.xlsx --gene-list examples/data/id.xlsx --output examples/enrich_result.xlsx

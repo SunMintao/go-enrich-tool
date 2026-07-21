@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-GO富集分析及聚类工具的命令行入口
-用法示例:
+Command-line entry point for the GO enrichment and clustering tool.
+Usage examples:
   go-enrich enrich --go-anno go_annotation.xlsx --gene-list id.xlsx --output enrich_result.xlsx
   go-enrich cluster --input enrich_result.xlsx --output-prefix clustering_out
+  go-enrich convert any_annotation.xlsx standard.xlsx [--obo go-basic.obo]
 """
 
 import argparse
@@ -14,71 +15,78 @@ import os
 try:
     from go_enrich.enrichment import run_enrichment
     from go_enrich.core import run_clustering
+    from go_enrich.convert import convert_any_go_annotation
 except ImportError:
-    # 如果尚未打包，允许直接运行当前目录下的模块（开发模式）
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from enrichment import run_enrichment
     from core import run_clustering
+    from convert import convert_any_go_annotation
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="GO富集分析与聚类工具",
+        description="GO enrichment analysis and clustering tool",
         prog="go-enrich"
     )
-    subparsers = parser.add_subparsers(dest="command", required=True, help="子命令")
+    subparsers = parser.add_subparsers(dest="command", required=True, help="sub-commands")
 
-    # ---------- enrich 子命令 ----------
-    enrich_parser = subparsers.add_parser("enrich", help="运行GO富集分析")
-    enrich_parser.add_argument("--go-anno", required=True, help="GO注释文件 (Excel格式，含ID和Annotation列)")
-    enrich_parser.add_argument("--gene-list", required=True, help="目标基因列表文件 (Excel格式，第一列为基因ID)")
-    enrich_parser.add_argument("--output", default="go_enrichment_result.xlsx", help="输出Excel文件路径")
+    # ---------- enrich sub-command ----------
+    enrich_parser = subparsers.add_parser("enrich", help="Run GO enrichment analysis")
+    enrich_parser.add_argument("--go-anno", required=True, help="GO annotation file (Excel format, with ID and Annotation columns)")
+    enrich_parser.add_argument("--gene-list", required=True, help="Target gene list file (Excel format, first column gene IDs)")
+    enrich_parser.add_argument("--output", default="go_enrichment_result.xlsx", help="Output Excel file path")
     enrich_parser.add_argument("--ontology", default="BP", choices=["BP", "CC", "MF", "ALL"],
-                               help="GO本体类型，默认BP")
+                               help="GO ontology type, default BP")
     enrich_parser.add_argument("--use-obo", action="store_true", default=True,
-                               help="使用GO基础本体文件获取分类信息")
-    enrich_parser.add_argument("--obo-path", default="go-basic.obo", help="本地obo文件路径或下载保存位置")
+                               help="Use GO basic ontology file to obtain classification information")
+    enrich_parser.add_argument("--obo-path", default="go-basic.obo", help="Local obo file path or download location")
 
-    # ---------- cluster 子命令 ----------
-    cluster_parser = subparsers.add_parser("cluster", help="对GO富集结果进行聚类分析")
+    # ---------- cluster sub-command ----------
+    cluster_parser = subparsers.add_parser("cluster", help="Cluster GO enrichment results")
     cluster_parser.add_argument("--input", required=True,
-                                help="GO富集结果Excel文件 (包含GO, Description, P-value, Adjusted P-value, Count_all, All_index等列)")
-    cluster_parser.add_argument("--sheet", default="Sheet1", help="Excel工作表名")
-    cluster_parser.add_argument("--output-prefix", default="go_clustering", help="输出文件前缀 (将生成多个文件)")
+                                help="GO enrichment result Excel file (must contain GO, Description, P-value, Adjusted P-value, Count_all, All_index columns)")
+    cluster_parser.add_argument("--sheet", default="Sheet1", help="Excel sheet name")
+    cluster_parser.add_argument("--output-prefix", default="go_clustering", help="Output file prefix (multiple files will be generated)")
 
-    # 筛选参数
-    cluster_parser.add_argument("--p-cutoff", type=float, default=0.05, help="校正后p值阈值")
-    cluster_parser.add_argument("--min-genes", type=int, default=3, help="最小基因计数")
+    # Filtering parameters
+    cluster_parser.add_argument("--p-cutoff", type=float, default=0.05, help="Adjusted p-value threshold")
+    cluster_parser.add_argument("--min-genes", type=int, default=3, help="Minimum gene count")
     cluster_parser.add_argument("--logp-median-ratio", action="store_true", default=True,
-                                help="是否使用负对数p值中位数进行筛选")
-    cluster_parser.add_argument("--keep-top-n", type=int, default=15, help="自动降级时保留的top术语数")
-    cluster_parser.add_argument("--no-merge-identical", action="store_true", help="不合并基因集完全相同的术语")
+                                help="Whether to use median of negative log p-value for filtering")
+    cluster_parser.add_argument("--keep-top-n", type=int, default=15, help="Number of top terms to keep when falling back automatically")
+    cluster_parser.add_argument("--no-merge-identical", action="store_true", help="Do not merge terms with identical gene sets")
 
-    # 相似度参数
-    cluster_parser.add_argument("--similarity", default="jaccard", choices=["jaccard", "ochiai"], help="相似度度量")
-    cluster_parser.add_argument("--parallel", action="store_true", default=True, help="并行计算相似度矩阵")
+    # Similarity parameters
+    cluster_parser.add_argument("--similarity", default="jaccard", choices=["jaccard", "ochiai"], help="Similarity metric")
+    cluster_parser.add_argument("--parallel", action="store_true", default=True, help="Enable parallel computation")
 
-    # 降维参数
-    cluster_parser.add_argument("--embed-method", default="umap", choices=["umap", "mds", "tsne"], help="降维方法")
-    cluster_parser.add_argument("--random-state", type=int, default=42, help="随机种子")
+    # Dimensionality reduction parameters
+    cluster_parser.add_argument("--embed-method", default="umap", choices=["umap", "mds", "tsne"], help="Dimensionality reduction method")
+    cluster_parser.add_argument("--random-state", type=int, default=42, help="Random seed")
 
-    # 聚类参数
+    # Clustering parameters
     cluster_parser.add_argument("--cluster-method", default="meanshift", choices=["meanshift", "hdbscan"],
-                                help="聚类算法")
-    cluster_parser.add_argument("--k-neighbors", type=int, default=8, help="Mean-Shift带宽估计的k近邻数")
-    cluster_parser.add_argument("--min-bandwidth", type=float, default=0.3, help="Mean-Shift最小带宽")
-    cluster_parser.add_argument("--hdbscan-min-cluster-size", type=int, default=3, help="HDBSCAN最小簇大小")
-    cluster_parser.add_argument("--auto-fallback", action="store_true", default=True, help="聚类结果异常时自动调整参数")
+                                help="Clustering algorithm")
+    cluster_parser.add_argument("--k-neighbors", type=int, default=8, help="Number of neighbors for Mean-Shift bandwidth estimation")
+    cluster_parser.add_argument("--min-bandwidth", type=float, default=0.3, help="Minimum bandwidth for Mean-Shift")
+    cluster_parser.add_argument("--hdbscan-min-cluster-size", type=int, default=3, help="Minimum cluster size for HDBSCAN")
+    cluster_parser.add_argument("--auto-fallback", action="store_true", default=True, help="Automatically adjust parameters if clustering fails")
 
-    # 可视化与导出
-    cluster_parser.add_argument("--similarity-threshold", type=float, default=0.3, help="网络图连边相似度阈值")
-    cluster_parser.add_argument("--no-plots", action="store_true", help="不生成绘图（仅输出表格）")
-    cluster_parser.add_argument("--wordcloud-dir", default="wordclouds", help="词云输出目录")
-    cluster_parser.add_argument("--cytoscape", action="store_true", default=True, help="导出Cytoscape兼容文件")
+    # Visualization and export
+    cluster_parser.add_argument("--similarity-threshold", type=float, default=0.3, help="Similarity threshold for network edges")
+    cluster_parser.add_argument("--no-plots", action="store_true", help="Do not generate plots (only output table)")
+    cluster_parser.add_argument("--wordcloud-dir", default="wordclouds", help="Word cloud output directory")
+    cluster_parser.add_argument("--cytoscape", action="store_true", default=True, help="Export Cytoscape-compatible files")
+
+    # ---------- convert sub-command ----------
+    convert_parser = subparsers.add_parser("convert", help="Convert any GO annotation file to standard format (using obo file for descriptions)")
+    convert_parser.add_argument("input", help="Input file path (supports arbitrary Excel formats)")
+    convert_parser.add_argument("output", help="Output file path (standard format .xlsx)")
+    convert_parser.add_argument("--obo", default="go-basic.obo",
+                                help="GO basic ontology file path (obo format, default go-basic.obo; .txt suffix also accepted)")
 
     args = parser.parse_args()
 
-    # 执行相应子命令
     if args.command == "enrich":
         run_enrichment(
             go_anno_file=args.go_anno,
@@ -112,6 +120,8 @@ def main():
             wordcloud_dir=args.wordcloud_dir,
             export_cytoscape=args.cytoscape
         )
+    elif args.command == "convert":
+        convert_any_go_annotation(args.input, args.output, obo_path=args.obo)
     else:
         parser.print_help()
         sys.exit(1)

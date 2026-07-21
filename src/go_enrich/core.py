@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-GO 富集结果聚类分析（强制依赖版）
-- 必须安装所有依赖包，否则报错
-- 包含动态筛选、冗余合并、Jaccard/Ochiai相似度、UMAP降维、Mean‑Shift/HDBSCAN聚类、
-  轮廓系数评估、静态/交互式网络图、词云、Cytoscape导出等全部功能
+GO enrichment result clustering analysis (strict dependency version)
+- All dependencies must be installed, otherwise errors are raised.
+- Includes dynamic filtering, redundancy merging, Jaccard/Ochiai similarity,
+  UMAP dimensionality reduction, Mean‑Shift/HDBSCAN clustering,
+  silhouette coefficient evaluation, static/interactive network,
+  word cloud, and Cytoscape export.
 """
 
 import pandas as pd
@@ -46,9 +48,9 @@ class GOTermClusteringAnalyzer:
         self.parameters = {}
         self.merged_terms_info = []
 
-    # ---------- 1. 数据加载与预处理 ----------
+    # ---------- 1. Data loading and preprocessing ----------
     def load_data(self):
-        print(f"加载数据: {self.file_path}")
+        print(f"Loading data: {self.file_path}")
         self.df = pd.read_excel(self.file_path, sheet_name=self.sheet_name)
 
         def parse_genes(gene_string):
@@ -58,25 +60,25 @@ class GOTermClusteringAnalyzer:
 
         self.df['Gene_Set'] = self.df['All_index'].apply(parse_genes)
         self.df = self.df[self.df['Gene_Set'].apply(len) > 0].reset_index(drop=True)
-        print(f"原始 GO term 数量: {len(self.df)}")
+        print(f"Raw GO terms count: {len(self.df)}")
 
         empty_ratio = (self.df['All_index'].isna() | (self.df['All_index'] == '')).mean()
         if empty_ratio > 0.3:
-            print(f"警告: {empty_ratio:.1%} 的 All_index 为空，请检查输入文件。")
+            print(f"Warning: {empty_ratio:.1%} of All_index are empty, please check input file.")
 
         mismatch = (self.df['Count_all'] != self.df['Gene_Set'].apply(len)).sum()
         if mismatch > 0:
-            print(f"警告: {mismatch} 行的 Count_all 与基因集实际大小不一致，已自动校准。")
+            print(f"Warning: {mismatch} rows have Count_all inconsistent with actual gene set size; automatically corrected.")
             self.df['Count_all'] = self.df['Gene_Set'].apply(len)
 
         if self.df['GO'].duplicated().any():
             self.df = self.df.sort_values('P-value').drop_duplicates('GO').reset_index(drop=True)
-            print("已去除重复的 GO ID。")
+            print("Removed duplicate GO IDs.")
         return self
 
     def filter_terms_dynamic(self, p_cutoff=0.05, min_genes=5, logp_median_ratio=True,
                              keep_top_n=15, auto_fallback=True):
-        print("动态筛选 GO 术语...")
+        print("Dynamically filtering GO terms...")
         mask = (self.df['Adjusted P-value'] < p_cutoff) & (self.df['Count_all'] >= min_genes)
         if logp_median_ratio:
             neg_logp = -np.log10(self.df['P-value'].clip(lower=1e-300))
@@ -88,9 +90,9 @@ class GOTermClusteringAnalyzer:
             keep_idx = self.df[mask2].index
             if len(keep_idx) < 3:
                 keep_idx = self.df.nsmallest(keep_top_n, 'P-value').index
-                print(f"显著术语不足，按 P-value 取 top {keep_top_n}")
+                print(f"Not enough significant terms, taking top {keep_top_n} by P-value")
         self.df = self.df.loc[keep_idx].reset_index(drop=True)
-        print(f"筛选后保留 {len(self.df)} 个术语")
+        print(f"Retained {len(self.df)} terms after filtering")
         self.parameters['filter'] = {
             'p_cutoff': p_cutoff, 'min_genes': min_genes,
             'logp_median_ratio': logp_median_ratio,
@@ -99,7 +101,7 @@ class GOTermClusteringAnalyzer:
         return self
 
     def merge_identical_sets(self):
-        print("检查并合并完全相同基因集...")
+        print("Checking and merging identical gene sets...")
         set_to_indices = {}
         for idx, row in self.df.iterrows():
             fs = row['Gene_Set']
@@ -120,23 +122,23 @@ class GOTermClusteringAnalyzer:
                     'merged_GOs': ','.join(merged_ids),
                     'description': sub_df.loc[best_idx, 'Description']
                 })
-                print(f"  合并 {len(others)} 个术语: {sub_df.loc[best_idx, 'GO']} 保留了 {merged_ids}")
+                print(f"  Merged {len(others)} terms: {sub_df.loc[best_idx, 'GO']} kept, merged {merged_ids}")
         if to_keep:
             self.df = self.df.loc[to_keep].reset_index(drop=True)
         self.df['Merged_GOs'] = ''
         for info in self.merged_terms_info:
             rep_go = info['representative_GO']
             self.df.loc[self.df['GO'] == rep_go, 'Merged_GOs'] = info['merged_GOs']
-        print(f"合并后剩余 {len(self.df)} 个非冗余术语")
+        print(f"After merging, {len(self.df)} non-redundant terms remain")
         self.parameters['merged'] = {'n_merged_groups': len(self.merged_terms_info)}
         return self
 
-    # ---------- 2. 相似度计算 ----------
+    # ---------- 2. Similarity calculation ----------
     def calculate_similarity(self, metric='jaccard', parallel=True):
         n = len(self.df)
         if n == 0:
-            raise ValueError("无有效 GO term")
-        print(f"计算 {metric} 相似度矩阵 (n={n})...")
+            raise ValueError("No valid GO terms")
+        print(f"Computing {metric} similarity matrix (n={n})...")
         self.gene_sets = [row['Gene_Set'] for _, row in self.df.iterrows()]
 
         def sim_pair(i, j):
@@ -162,9 +164,9 @@ class GOTermClusteringAnalyzer:
                 for (i, j), val in zip(pairs, results):
                     self.similarity_matrix[i, j] = val
                     self.similarity_matrix[j, i] = val
-                print("并行计算完成")
+                print("Parallel computation finished")
             except Exception as e:
-                print(f"并行失败，回退串行: {e}")
+                print(f"Parallel computation failed, falling back to serial: {e}")
                 self._calc_similarity_serial(sim_pair, n)
         else:
             self._calc_similarity_serial(sim_pair, n)
@@ -180,9 +182,9 @@ class GOTermClusteringAnalyzer:
                 self.similarity_matrix[i, j] = sim
                 self.similarity_matrix[j, i] = sim
 
-    # ---------- 3. 降维 ----------
+    # ---------- 3. Dimensionality reduction ----------
     def embed_coords(self, method='umap', random_state=42, **kwargs):
-        print(f"降维方法: {method}")
+        print(f"Dimensionality reduction method: {method}")
         n = len(self.df)
         if method.lower() == 'mds':
             mds = MDS(n_components=2, dissimilarity='precomputed',
@@ -197,11 +199,11 @@ class GOTermClusteringAnalyzer:
                                 random_state=random_state, **kwargs)
             self.coords_2d = reducer.fit_transform(self.distance_matrix)
         else:
-            raise ValueError("method 可选 mds, tsne, umap")
+            raise ValueError("method must be one of: mds, tsne, umap")
         self.parameters['embedding'] = {'method': method, 'kwargs': kwargs}
         return self
 
-    # ---------- 4. 聚类 ----------
+    # ---------- 4. Clustering ----------
     def estimate_bandwidth_knn(self, k=8):
         nbrs = NearestNeighbors(n_neighbors=k).fit(self.coords_2d)
         distances, _ = nbrs.kneighbors(self.coords_2d)
@@ -212,24 +214,24 @@ class GOTermClusteringAnalyzer:
                            min_bandwidth=0.3, hdbscan_min_cluster_size=3,
                            auto_fallback=True):
         if self.coords_2d is None:
-            raise ValueError("请先执行 embed_coords()")
-        print(f"聚类方法: {cluster_method}")
+            raise ValueError("Please run embed_coords() first")
+        print(f"Clustering method: {cluster_method}")
         if cluster_method == 'meanshift':
             bandwidth = self.estimate_bandwidth_knn(k=k_neighbors)
             if bandwidth < min_bandwidth:
                 bandwidth = min_bandwidth
-            print(f"自适应带宽: {bandwidth:.4f}")
+            print(f"Adaptive bandwidth: {bandwidth:.4f}")
             ms = MeanShift(bandwidth=bandwidth, bin_seeding=True, cluster_all=True)
             self.cluster_labels = ms.fit_predict(self.coords_2d)
             self.cluster_centers = ms.cluster_centers_
             unique = np.unique(self.cluster_labels)
-            print(f"Mean-Shift 完成，{len(unique)} 个簇")
+            print(f"Mean-Shift completed, {len(unique)} clusters")
             if auto_fallback and len(unique) == 1 and len(self.df) > 5:
-                print("警告：所有点为一簇，缩小带宽重试...")
+                print("Warning: all points in one cluster, retrying with smaller bandwidth...")
                 ms2 = MeanShift(bandwidth=bandwidth*0.6, bin_seeding=True)
                 self.cluster_labels = ms2.fit_predict(self.coords_2d)
                 self.cluster_centers = ms2.cluster_centers_
-                print(f"重试后簇数: {len(np.unique(self.cluster_labels))}")
+                print(f"Retry gave {len(np.unique(self.cluster_labels))} clusters")
         elif cluster_method == 'hdbscan':
             clusterer = hdbscan.HDBSCAN(min_cluster_size=hdbscan_min_cluster_size,
                                         metric='euclidean')
@@ -238,28 +240,28 @@ class GOTermClusteringAnalyzer:
             if noise_mask.any():
                 max_label = self.cluster_labels.max()
                 self.cluster_labels[noise_mask] = max_label + 1
-                print(f"将 {noise_mask.sum()} 个噪声点转为新簇 {max_label+1}")
+                print(f"Reassigned {noise_mask.sum()} noise points to new cluster {max_label+1}")
             self.cluster_centers = None
-            print(f"HDBSCAN 完成，{len(np.unique(self.cluster_labels))} 个簇")
+            print(f"HDBSCAN completed, {len(np.unique(self.cluster_labels))} clusters")
         else:
-            raise ValueError("cluster_method 须为 'meanshift' 或 'hdbscan'")
+            raise ValueError("cluster_method must be 'meanshift' or 'hdbscan'")
         self.parameters['clustering'] = {'method': cluster_method,
                                          'n_clusters': len(np.unique(self.cluster_labels))}
         return self
 
-    # ---------- 5. 质量评估 ----------
+    # ---------- 5. Quality evaluation ----------
     def evaluate_clustering(self):
         if self.cluster_labels is None:
-            raise ValueError("请先执行聚类")
+            raise ValueError("Please run clustering first")
         if self.results_df is None:
-            raise ValueError("请先执行 compile_results() 以创建 results_df")
+            raise ValueError("Please run compile_results() first to create results_df")
         if len(np.unique(self.cluster_labels)) < 2:
             self.silhouette_avg = -1
-            print("无法计算轮廓系数（簇数 < 2）")
+            print("Cannot compute silhouette score (fewer than 2 clusters)")
             return self
         self.silhouette_avg = silhouette_score(self.distance_matrix, self.cluster_labels,
                                                metric='precomputed')
-        print(f"整体轮廓系数: {self.silhouette_avg:.4f}")
+        print(f"Overall silhouette coefficient: {self.silhouette_avg:.4f}")
         sil_vals = silhouette_samples(self.distance_matrix, self.cluster_labels,
                                       metric='precomputed')
         self.results_df['Silhouette'] = sil_vals
@@ -267,7 +269,7 @@ class GOTermClusteringAnalyzer:
         self.parameters['quality'] = {'silhouette_score': self.silhouette_avg}
         return self
 
-    # ---------- 6. 汇总结果 ----------
+    # ---------- 6. Compile results ----------
     def compile_results(self):
         self.results_df = self.df.copy()
         self.results_df['Cluster'] = self.cluster_labels
@@ -293,7 +295,7 @@ class GOTermClusteringAnalyzer:
         self.cluster_summary = pd.DataFrame(cluster_summary_list)
         return self
 
-    # ---------- 7. 可视化 ----------
+    # ---------- 7. Visualization ----------
     def plot_cluster_scatter(self, save_path='cluster_scatter.png'):
         fig, ax = plt.subplots(figsize=(10, 8))
         ax.scatter(self.coords_2d[:, 0], self.coords_2d[:, 1],
@@ -309,7 +311,7 @@ class GOTermClusteringAnalyzer:
         plt.tight_layout()
         plt.savefig(save_path, dpi=300)
         plt.close()
-        print(f"散点图: {save_path}")
+        print(f"Scatter plot saved: {save_path}")
 
     def plot_similarity_heatmap(self, save_path='similarity_heatmap.png'):
         order = np.argsort(self.cluster_labels)
@@ -328,14 +330,16 @@ class GOTermClusteringAnalyzer:
         plt.tight_layout()
         plt.savefig(save_path, dpi=300)
         plt.close()
-        print(f"热图: {save_path}")
+        print(f"Heatmap saved: {save_path}")
 
     def plot_bubble_chart(self, save_path='bubble_chart.png', x_cap=10):
         plot_df = self.results_df.copy()
         plot_df['neg_log_p'] = -np.log10(plot_df['Adjusted P-value'].clip(lower=1e-300))
         plot_df['neg_log_p_capped'] = plot_df['neg_log_p'].clip(upper=x_cap)
         plot_df['capped'] = plot_df['neg_log_p'] > x_cap
-        plot_df['Short_Desc'] = plot_df['Description'].apply(lambda s: s[:60]+'...' if len(s)>63 else s)
+        plot_df['Short_Desc'] = plot_df['Description'].apply(
+            lambda s: (str(s)[:60] + '...') if isinstance(s, str) and len(s) > 63 else (str(s) if pd.notna(s) else '')
+        )
         plot_df = plot_df.sort_values('Adjusted P-value')
         n = len(plot_df)
         fig_height = max(4, n*0.4+1)
@@ -358,7 +362,7 @@ class GOTermClusteringAnalyzer:
         plt.tight_layout()
         plt.savefig(save_path, dpi=300)
         plt.close()
-        print(f"气泡图: {save_path}")
+        print(f"Bubble chart saved: {save_path}")
 
     def plot_network_view(self, similarity_threshold=0.3, save_path='network_view.png'):
         fig, ax = plt.subplots(figsize=(14, 10))
@@ -375,8 +379,15 @@ class GOTermClusteringAnalyzer:
                     ax.plot([self.coords_2d[i,0], self.coords_2d[j,0]],
                             [self.coords_2d[i,1], self.coords_2d[j,1]],
                             'gray', alpha=0.3, linewidth=0.8)
-        for i, (x,y) in enumerate(self.coords_2d):
-            ax.annotate(self.results_df.iloc[i]['Description'][:40], (x,y),
+        for i, (x, y) in enumerate(self.coords_2d):
+            desc = self.results_df.iloc[i]['Description']
+            if pd.isna(desc):
+                desc = ''
+            else:
+                desc = str(desc)
+                if len(desc) > 40:
+                    desc = desc[:40] + '...'
+            ax.annotate(desc, (x, y),
                         fontsize=7, ha='center', va='bottom',
                         bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.6))
         ax.set_xlabel('Dimension 1')
@@ -386,23 +397,28 @@ class GOTermClusteringAnalyzer:
         plt.tight_layout()
         plt.savefig(save_path, dpi=300)
         plt.close()
-        print(f"网络图: {save_path}")
+        print(f"Network plot saved: {save_path}")
 
     def plot_interactive_network(self, similarity_threshold=0.3, save_path='network_interactive.html'):
         net = Network(height="800px", width="100%", bgcolor="#ffffff")
         for idx, row in self.results_df.iterrows():
             title = f"GO:{row['GO']}<br>{row['Description']}<br>P={row['P-value']:.2e}<br>Cluster={row['Cluster']}"
-            net.add_node(idx, label=row['Description'][:30], title=title,
+            desc = row['Description']
+            if pd.isna(desc):
+                label = ''
+            else:
+                desc = str(desc)
+                label = desc[:30] if len(desc) >= 30 else desc
+            net.add_node(idx, label=label, title=title,
                          color=self._get_cluster_color(row['Cluster']), size=20)
         for i in range(len(self.df)):
             for j in range(i + 1, len(self.df)):
                 if self.similarity_matrix[i, j] > similarity_threshold:
                     net.add_edge(i, j, value=self.similarity_matrix[i, j],
                                  title=f"Sim: {self.similarity_matrix[i, j]:.2f}")
-        # 使用合法的 JSON 字符串设置选项
         net.set_options('{"physics": {"enabled": true, "stabilization": {"iterations": 100}}}')
         net.save_graph(save_path)
-        print(f"交互网络: {save_path}")
+        print(f"Interactive network saved: {save_path}")
 
     def _get_cluster_color(self, cluster_id):
         palette = plt.cm.tab20(np.linspace(0,1,20))
@@ -416,6 +432,11 @@ class GOTermClusteringAnalyzer:
                          'activity','process','response','regulation','positive','negative','involved','mediated'])
         for cl in np.unique(self.cluster_labels):
             texts = self.results_df[self.results_df['Cluster'] == cl]['Description'].tolist()
+            # Safely handle empty values and convert to string
+            texts = [str(t) for t in texts if pd.notna(t)]
+            if not texts:  # Skip if no valid descriptions for this cluster
+                print(f"Warning: cluster {cl} has no valid description text, skipping word cloud")
+                continue
             corpus = ' '.join(texts).lower()
             corpus = re.sub(r'[^\w\s]', ' ', corpus)
             wc = WordCloud(width=800, height=400, background_color='white',
@@ -426,9 +447,9 @@ class GOTermClusteringAnalyzer:
             plt.title(f'Cluster {cl} Word Cloud')
             plt.savefig(f"{output_dir}/cluster_{cl}_wordcloud.png", dpi=300)
             plt.close()
-        print(f"词云保存至 {output_dir}")
+        print(f"Word clouds saved to {output_dir}")
 
-    # ---------- 8. 输出结果 ----------
+    # ---------- 8. Output results ----------
     def save_results(self, output_path='clustering_results.xlsx'):
         with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
             self.results_df[['GO','Description','P-value','Adjusted P-value','Cluster','Silhouette','Is_Boundary',
@@ -440,7 +461,7 @@ class GOTermClusteringAnalyzer:
             if self.merged_terms_info:
                 merged_df = pd.DataFrame(self.merged_terms_info)
                 merged_df.to_excel(writer, sheet_name='Merged_Terms', index=False)
-        print(f"结果保存: {output_path}")
+        print(f"Results saved to {output_path}")
 
     def export_cytoscape(self, similarity_threshold=0.3,
                          node_file='cytoscape_nodes.txt', edge_file='cytoscape_edges.txt'):
@@ -455,7 +476,7 @@ class GOTermClusteringAnalyzer:
                 if sim > similarity_threshold:
                     edges.append([self.df.iloc[i]['GO'], self.df.iloc[j]['GO'], sim])
         pd.DataFrame(edges, columns=['GO_A','GO_B','Similarity']).to_csv(edge_file, sep='\t', index=False)
-        print(f"Cytoscape 文件: {node_file}, {edge_file}")
+        print(f"Cytoscape files: {node_file}, {edge_file}")
 
 
 def run_clustering(input_file, sheet_name='Sheet1', output_prefix='go_clustering',
@@ -465,9 +486,7 @@ def run_clustering(input_file, sheet_name='Sheet1', output_prefix='go_clustering
                    k_neighbors=8, min_bandwidth=0.3, hdbscan_min_cluster_size=3,
                    auto_fallback=True, similarity_threshold=0.3, no_plots=False,
                    wordcloud_dir='wordclouds', export_cytoscape=True):
-    """对GO富集结果进行聚类分析，生成多种输出文件"""
-    # 实例化 GOTermClusteringAnalyzer，按参数调用各方法
-    # 示例框架：
+    """Cluster GO enrichment results and generate multiple output files."""
     analyzer = GOTermClusteringAnalyzer(input_file, sheet_name=sheet_name)
     analyzer.load_data()
     analyzer.filter_terms_dynamic(p_cutoff=p_cutoff, min_genes=min_genes,

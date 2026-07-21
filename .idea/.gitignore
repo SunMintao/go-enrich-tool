@@ -1,5 +1,65 @@
-# 默认忽略的文件
-/shelf/
-/workspace.xml
-# 基于编辑器的 HTTP 客户端请求
-/httpRequests/
+# ============================
+#  Python general
+# ============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+*.dylib
+*.egg
+*.egg-info/
+dist/
+build/
+develop-eggs/
+downloads/
+eggs/
+parts/
+var/
+*.manifest
+*.spec
+
+# ============================
+#  Virtual environments
+# ============================
+venv/
+env/
+.venv/
+.env
+*.env
+
+# ============================
+#  IDE / editors
+# ============================
+# PyCharm
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ============================
+#  Testing & coverage
+# ============================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# ============================
+#  Logs / temporary files
+# ============================
+*.log
+*.tmp
+*.temp
+
+# ============================
+#  OS specific
+# ============================
+Thumbs.db
+.DS_Store

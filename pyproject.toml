@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "go-enrich-tool"
-version = "0.1.0"
-description = "GO enrichment analysis and clustering tool based on gene set overlap"
+version = "0.1.1"
+description = "GO enrichment analysis, clustering, and annotation format conversion tool based on gene set overlap"
 authors = [
     {name = "Sun Mintao", email = "sunmintao@caas.cn"},
 ]
@@ -37,6 +37,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/SunMintao/go-enrich-tool"
 Repository = "https://github.com/SunMintao/go-enrich-tool.git"
+Issues = "https://github.com/SunMintao/go-enrich-tool/issues"
 
 [project.scripts]
 go-enrich = "go_enrich.cli:main"

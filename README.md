@@ -1,83 +1,100 @@
-```markdown
 # GO Enrichment and Clustering Tool
 
-[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+**GO Enrichment and Clustering Tool** is an integrated command-line tool for Gene Ontology (GO) enrichment analysis and clustering of enrichment results. It performs hypergeometric tests for enrichment and uses gene overlap-based similarity (Jaccard / Ochiai) to reduce dimensionality (UMAP / MDS / t‑SNE) and apply unsupervised clustering (Mean‑Shift / HDBSCAN) to the enriched GO terms. Multiple visualization charts and network files are generated to help researchers explore functional modules from a global perspective.
 
-**GO Enrichment and Clustering Tool** 是一个用于基因本体（GO）富集分析及结果聚类的一体化命令行工具。它利用超几何检验进行富集分析，并基于基因重叠相似度（Jaccard / Ochiai）对富集得到的 GO 术语进行降维（UMAP / MDS / t‑SNE）和无监督聚类（Mean‑Shift / HDBSCAN），最终生成多种可视化图表及网络文件，帮助研究人员从全局视角挖掘差异基因的功能模块。
+## Key Features
 
-## 主要功能
+- **GO annotation file format conversion**  
+  
+  - Automatically identifies the gene ID column in Excel files and extracts all GO IDs.  
+  - Uses the GO basic ontology file (go-basic.obo) to retrieve standard term names for GO IDs, outputting a two‑column format (`ID`, `Annotation`) compatible with this tool.  
+  - Supports arbitrary column layouts and various delimiters (comma, pipe, semicolon, etc.) – no manual reformatting required.
 
-- **GO富集分析**  
-  - 支持从本地 GO 注释文件（Excel）自动计算超几何检验 \(p\) 值及 Benjamini‑Hochberg 校正。  
-  - 可指定本体类型（BP / CC / MF / ALL），自动下载并解析 GO 基础本体文件（go‑basic.obo）获取 namespace。  
-  - 输出包含差异基因列表（`All_index`）等详细信息。
+- **GO enrichment analysis**  
+  
+  - Computes hypergeometric test \(p\)-values and Benjamini‑Hochberg correction from a local GO annotation Excel file.  
+  - Allows specification of ontology sub‑ontologies (BP / CC / MF / ALL), automatically downloads and parses the GO basic ontology file (go‑basic.obo) to obtain namespace information.  
+  - Output includes detailed information such as the list of associated genes (`All_index`).
 
-- **动态筛选与冗余合并**  
-  - 根据校正后 \(p\) 值、基因计数、负对数中位数自动筛选显著术语。  
-  - 自动合并基因集完全相同的冗余 GO 条目，保留 \(p\) 值最小的代表术语。
+- **Dynamic filtering and redundancy merging**  
+  
+  - Automatically filters significant terms based on adjusted \(p\)-value, gene count, and median of negative log‑\(p\).  
+  - Merges redundant GO terms that share identical gene sets, keeping the term with the smallest \(p\)-value as the representative.
 
-- **相似度矩阵**  
-  - 计算 Jaccard 或 Ochiai 系数，构建术语间基于真实基因重叠的相似性/距离矩阵。  
-  - 支持多进程并行加速（术语数 > 100 时自动启用）。
+- **Similarity matrix**  
+  
+  - Computes Jaccard or Ochiai coefficients to construct a similarity/distance matrix based on actual gene overlap between terms.  
+  - Supports multi‑processing parallel computation (automatically enabled when the number of terms > 100).
 
-- **降维与聚类**  
-  - 降维方法：UMAP（默认）、MDS、t‑SNE。  
-  - 聚类算法：Mean‑Shift（自适应带宽）、HDBSCAN。  
-  - 轮廓系数评估聚类质量，自动标记边界点。
+- **Dimensionality reduction and clustering**  
+  
+  - Dimensionality reduction methods: UMAP (default), MDS, t‑SNE.  
+  - Clustering algorithms: Mean‑Shift (adaptive bandwidth), HDBSCAN.  
+  - Silhouette coefficient evaluation for clustering quality, automatic identification of boundary points.
 
-- **丰富的可视化输出**  
-  - 聚类散点图、相似性热图、气泡图、静态/交互式网络图（Pyvis）。  
-  - 按簇生成功能词云（WordCloud）。  
-  - 导出 Cytoscape 兼容的节点和边文件。
+- **Rich visualization outputs**  
+  
+  - Cluster scatter plot, similarity heatmap, bubble chart, static/interactive network (Pyvis).  
+  - Cluster‑specific word clouds (WordCloud).  
+  - Export of Cytoscape‑compatible node and edge files.
 
-## 安装
+## Installation
 
-### 从源码安装
+### Install from source
 
 ```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/SunMintao/go-enrich-tool.git
 cd go-enrich-tool
 
-# 推荐使用虚拟环境
+# It is recommended to use a virtual environment
 python -m venv venv
 source venv/bin/activate   # Linux/macOS
 venv\Scripts\activate      # Windows
 
-# 安装包
+# Install the package
 pip install -e .
 ```
 
-### 依赖
+### Dependencies
 
-自动安装的核心依赖包括（详见 `pyproject.toml`）：
+Core dependencies are automatically installed (see `pyproject.toml` for details):
 
 - `pandas`, `numpy`, `scipy`, `statsmodels`, `requests`
 - `matplotlib`, `seaborn`, `wordcloud`, `pyvis`
 - `scikit-learn`, `umap-learn`, `hdbscan`
 - `openpyxl`
 
-## 快速开始
+## Quick Start
 
-### 1. 准备输入文件
+### 1. Prepare input files
 
-- **GO注释文件**（Excel，例如 `go_annotation.xlsx`）：  
-  至少包含两列：`ID`（基因标识符）和 `Annotation`（GO 注释，格式为 `GO:xxxxxx,描述`；多个条目以分号分隔）。
-- **目标基因列表文件**（Excel，例如 `id.xlsx`）：  
-  第一列为基因 ID。
+- **GO annotation file** (Excel, e.g., `go_annotation.xlsx`):  
+  Must contain at least two columns: `ID` (gene identifier) and `Annotation` (GO annotations in the format `GO:xxxxxx,description`; multiple entries separated by semicolons).  
+  If your annotation file uses a different format, you can use the `convert` subcommand to standardise it (see below).
 
-### 2. 运行富集分析
+- **Target gene list file** (Excel, e.g., `id.xlsx`):  
+  The first column should contain gene IDs.
+
+### 2. Convert any annotation file to the standard format (optional)
+
+```bash
+go-enrich convert any_format.xlsx standard.xlsx --obo go-basic.obo
+```
+
+The generated `standard.xlsx` can then be directly used for enrichment analysis.
+
+### 3. Run enrichment analysis
 
 ```bash
 go-enrich enrich \
     --go-anno data/go_annotation.xlsx \
     --gene-list data/id.xlsx \
     --output results/enrichment.xlsx \
-    --ontology BP
+    --ontology ALL
 ```
 
-### 3. 对富集结果进行聚类
+### 4. Cluster the enrichment results
 
 ```bash
 go-enrich cluster \
@@ -85,104 +102,112 @@ go-enrich cluster \
     --output-prefix results/clustering_output
 ```
 
-执行后会在 `results/` 目录下生成多个文件（详见下方“输出文件说明”）。
+After execution, multiple files will be generated in the `results/` directory (see the "Output Files" section below).
 
-## 命令行参数详情
+## Command‑line Arguments
 
-### `enrich` 子命令
+### `enrich` subcommand
 
-| 参数            | 必选  | 说明                                         |
-| ------------- | --- | ------------------------------------------ |
-| `--go-anno`   | 是   | GO 注释 Excel 文件路径                           |
-| `--gene-list` | 是   | 目标基因列表 Excel 文件路径                          |
-| `--output`    | 否   | 富集结果输出文件路径（默认 `go_enrichment_result.xlsx`） |
-| `--ontology`  | 否   | 本体类型，可选 `BP`, `CC`, `MF`, `ALL`（默认 `BP`）   |
-| `--use-obo`   | 否   | 是否下载并使用 obo 文件获取 namespace（默认启用）           |
-| `--obo-path`  | 否   | obo 文件保存/读取路径（默认 `go-basic.obo`）           |
+| Argument      | Required | Description                                                                  |
+| ------------- | -------- | ---------------------------------------------------------------------------- |
+| `--go-anno`   | Yes      | Path to the GO annotation Excel file (standard format).                      |
+| `--gene-list` | Yes      | Path to the target gene list Excel file.                                     |
+| `--output`    | No       | Output Excel file path (default: `go_enrichment_result.xlsx`).               |
+| `--ontology`  | No       | Ontology sub‑ontology: `BP`, `CC`, `MF`, `ALL` (default: `BP`).              |
+| `--use-obo`   | No       | Whether to download and use the obo file for namespace (enabled by default). |
+| `--obo-path`  | No       | Path to the obo file (default: `go-basic.obo`).                              |
 
-### `cluster` 子命令
+### `cluster` subcommand
 
-| 参数                           | 说明                                                                                                    |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `--input`                    | 富集结果 Excel 文件路径（必须包含 `GO`, `Description`, `P-value`, `Adjusted P-value`, `Count_all`, `All_index` 等列） |
-| `--output-prefix`            | 输出文件前缀（默认 `go_clustering`）                                                                            |
-| **筛选参数**                     |                                                                                                       |
-| `--p-cutoff`                 | 校正后 \(p\) 值阈值（默认 0.05）                                                                                |
-| `--min-genes`                | 最小基因计数（默认 3）                                                                                          |
-| `--logp-median-ratio`        | 是否使用负对数 \(p\) 值中位数过滤（默认启用）                                                                            |
-| `--keep-top-n`               | 自动降级时保留的 top 术语数量（默认 15）                                                                              |
-| `--no-merge-identical`       | 不合并基因集完全相同的术语（默认合并）                                                                                   |
-| **相似度参数**                    |                                                                                                       |
-| `--similarity`               | 相似度度量，`jaccard` 或 `ochiai`（默认 `jaccard`）                                                              |
-| `--parallel`                 | 是否并行计算（默认启用）                                                                                          |
-| **降维参数**                     |                                                                                                       |
-| `--embed-method`             | 降维方法，`umap`, `mds`, `tsne`（默认 `umap`）                                                                 |
-| `--random-state`             | 随机种子（默认 42）                                                                                           |
-| **聚类参数**                     |                                                                                                       |
-| `--cluster-method`           | 聚类算法，`meanshift` 或 `hdbscan`（默认 `meanshift`）                                                          |
-| `--k-neighbors`              | Mean‑Shift 带宽估计的 \(k\) 近邻数（默认 8）                                                                      |
-| `--min-bandwidth`            | Mean‑Shift 最小带宽（默认 0.3）                                                                               |
-| `--hdbscan-min-cluster-size` | HDBSCAN 最小簇大小（默认 3）                                                                                   |
-| `--auto-fallback`            | 聚类异常时自动调整参数（默认启用）                                                                                     |
-| **可视化与导出**                   |                                                                                                       |
-| `--similarity-threshold`     | 网络图连边相似度阈值（默认 0.3）                                                                                    |
-| `--no-plots`                 | 不生成绘图（仅输出表格）                                                                                          |
-| `--wordcloud-dir`            | 词云输出目录（默认 `wordclouds`）                                                                               |
-| `--cytoscape`                | 是否导出 Cytoscape 文件（默认启用）                                                                               |
+| Argument                     | Description                                                                                                                                    |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--input`                    | Path to the enrichment result Excel file (must contain columns: `GO`, `Description`, `P-value`, `Adjusted P-value`, `Count_all`, `All_index`). |
+| `--output-prefix`            | Prefix for output files (default: `go_clustering`).                                                                                            |
+| **Filtering**                |                                                                                                                                                |
+| `--p-cutoff`                 | Adjusted \(p\)-value cutoff (default: 0.05).                                                                                                   |
+| `--min-genes`                | Minimum gene count (default: 3).                                                                                                               |
+| `--logp-median-ratio`        | Whether to filter by median of negative log‑\(p\) (enabled by default).                                                                        |
+| `--keep-top-n`               | Number of top terms to keep when falling back automatically (default: 15).                                                                     |
+| `--no-merge-identical`       | Do not merge terms with identical gene sets (merging is enabled by default).                                                                   |
+| **Similarity**               |                                                                                                                                                |
+| `--similarity`               | Similarity metric: `jaccard` or `ochiai` (default: `jaccard`).                                                                                 |
+| `--parallel`                 | Enable parallel computation (enabled by default).                                                                                              |
+| **Dimensionality reduction** |                                                                                                                                                |
+| `--embed-method`             | Method: `umap`, `mds`, or `tsne` (default: `umap`).                                                                                            |
+| `--random-state`             | Random seed (default: 42).                                                                                                                     |
+| **Clustering**               |                                                                                                                                                |
+| `--cluster-method`           | Algorithm: `meanshift` or `hdbscan` (default: `meanshift`).                                                                                    |
+| `--k-neighbors`              | Number of neighbours for Mean‑Shift bandwidth estimation (default: 8).                                                                         |
+| `--min-bandwidth`            | Minimum bandwidth for Mean‑Shift (default: 0.3).                                                                                               |
+| `--hdbscan-min-cluster-size` | Minimum cluster size for HDBSCAN (default: 3).                                                                                                 |
+| `--auto-fallback`            | Automatically adjust parameters when clustering fails (enabled by default).                                                                    |
+| **Visualisation & export**   |                                                                                                                                                |
+| `--similarity-threshold`     | Threshold for drawing edges in the network (default: 0.3).                                                                                     |
+| `--no-plots`                 | Do not generate plots (only output the Excel table).                                                                                           |
+| `--wordcloud-dir`            | Directory for word clouds (default: `wordclouds`).                                                                                             |
+| `--cytoscape`                | Export Cytoscape‑compatible files (enabled by default).                                                                                        |
 
-## 输出文件说明
+### `convert` subcommand
 
-运行 `cluster` 子命令后，将在输出前缀所在目录生成以下文件：
+| Argument | Required | Description                                                                                                                    |
+| -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `input`  | Yes      | Input file path (supports arbitrary Excel formats).                                                                            |
+| `output` | Yes      | Output file path (standard‑format `.xlsx`).                                                                                    |
+| `--obo`  | No       | Path to the GO basic ontology file (default: `go-basic.obo`; `.txt` suffix is also allowed if the content matches obo format). |
 
-| 文件类型         | 文件名示例                          | 说明                                                                                                       |
-| ------------ | ------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| Excel 结果     | `{prefix}_results.xlsx`        | 包含 4 个工作表：`Clustering_Results`（每个术语的详细结果）、`Cluster_Summary`（簇汇总）、`Parameters`（运行参数）、`Merged_Terms`（合并信息） |
-| 散点图          | `{prefix}_scatter.png`         | 二维降维坐标及簇着色                                                                                               |
-| 相似性热图        | `{prefix}_heatmap.png`         | 按簇排序的相似度矩阵热图                                                                                             |
-| 气泡图          | `{prefix}_bubble.png`          | 术语描述 vs \(-\log_{10}(p)\)，气泡大小表示基因计数                                                                     |
-| 静态网络图        | `{prefix}_network.png`         | 相似度超过阈值的术语连接网络                                                                                           |
-| 交互式网络        | `{prefix}_network.html`        | 基于 Pyvis 的 HTML 交互网络，支持拖拽、悬停查看信息                                                                         |
-| 词云目录         | `{prefix}_wordclouds/`         | 每个簇单独的词云图（PNG）                                                                                           |
-| Cytoscape 节点 | `{prefix}_cytoscape_nodes.txt` | 节点信息表（制表符分隔）                                                                                             |
-| Cytoscape 边  | `{prefix}_cytoscape_edges.txt` | 边列表（GO_A, GO_B, Similarity）                                                                              |
+## Output Files
 
-## 使用示例数据运行富集分析
+After running the `cluster` subcommand, the following files are generated in the output prefix directory:
 
-```
-go-enrich enrich --go-anno examples/data/go_annotation.xlsx --gene-list examples/data/id.xlsx --output enrich.xlsx
-```
+| File type            | Example filename               | Description                                                                                                                                                             |
+| -------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Excel results        | `{prefix}_results.xlsx`        | Contains 4 sheets: `Clustering_Results` (detailed term results), `Cluster_Summary` (cluster summary), `Parameters` (run parameters), `Merged_Terms` (merged term info). |
+| Scatter plot         | `{prefix}_scatter.png`         | 2D embedding coordinates with cluster colours.                                                                                                                          |
+| Similarity heatmap   | `{prefix}_heatmap.png`         | Heatmap of the similarity matrix sorted by cluster.                                                                                                                     |
+| Bubble chart         | `{prefix}_bubble.png`          | Terms vs. \(-\log_{10}(p)\), bubble size represents gene count.                                                                                                         |
+| Static network       | `{prefix}_network.png`         | Network of terms with similarity above the threshold.                                                                                                                   |
+| Interactive network  | `{prefix}_network.html`        | HTML interactive network (Pyvis) supporting drag, zoom, and hover details.                                                                                              |
+| Word cloud directory | `{prefix}_wordclouds/`         | One PNG word cloud per cluster.                                                                                                                                         |
+| Cytoscape nodes      | `{prefix}_cytoscape_nodes.txt` | Node information (tab‑separated).                                                                                                                                       |
+| Cytoscape edges      | `{prefix}_cytoscape_edges.txt` | Edge list (GO_A, GO_B, Similarity).                                                                                                                                     |
 
-## 完整工作流
+## Complete Workflow Example
 
 ```bash
-# 1. 富集分析
-go-enrich enrich --go-anno tests/go_annotation.xlsx --gene-list tests/id.xlsx --output enrich.xlsx
+# 1. Convert any annotation file (if needed)
+go-enrich convert my_annotation.xlsx standard.xlsx --obo go-basic.obo
 
-# 2. 聚类（使用 Ochiai 相似度、t-SNE 降维、HDBSCAN 聚类）
+# 2. Enrichment analysis
+go-enrich enrich --go-anno standard.xlsx --gene-list genes.xlsx --output enrich.xlsx --ontology ALL
+
+# 3. Clustering with Ochiai similarity, t‑SNE embedding, and HDBSCAN
 go-enrich cluster --input enrich.xlsx --output-prefix my_clustering \
     --similarity ochiai --embed-method tsne --cluster-method hdbscan
 
-# 3. 仅输出表格，不绘图
+# 4. Only output the table, skip all plots
 go-enrich cluster --input enrich.xlsx --output-prefix my_clustering_no_plots --no-plots
 ```
 
-## 常见问题
+## Frequently Asked Questions
 
-**Q1: 提示缺少模块 `umap` 或 `hdbscan`？**  
-A: 请确保已安装所有依赖：`pip install -e .` 会自动安装；或手动安装 `pip install umap-learn hdbscan`。
+**Q1: Missing modules `umap` or `hdbscan`?**  
+A: Ensure all dependencies are installed: `pip install -e .` will install them automatically. Alternatively, manually install with `pip install umap-learn hdbscan`.
 
-**Q2: 为什么聚类后所有术语被分到一簇？**  
-A: 可能原因是术语数量过少或相似度普遍较高。请尝试使用 `--cluster-method hdbscan` 或调整 `--min-bandwidth` / `--k-neighbors` 参数。
+**Q2: Why are all terms clustered into one cluster?**  
+A: This may occur when the number of terms is too small or similarity is generally high. Try using `--cluster-method hdbscan` or adjust `--min-bandwidth` / `--k-neighbors`.
 
-**Q3: 富集分析中某些 GO 术语没有 `GO_level_1` 分类？**  
-A: 请确认 `--use-obo` 已启用且网络通畅，工具会自动下载 `go-basic.obo`。若仍失败，可手动下载该文件并指定 `--obo-path`。
+**Q3: Some GO terms lack `GO_level_1` classification in the enrichment results?**  
+A: Confirm that `--use-obo` is enabled and your network is working (the tool will download `go-basic.obo` automatically). If it still fails, manually download the file and specify it with `--obo-path`.
 
-## 引用
+**Q4: Descriptions are missing after running `convert`?**  
+A: Ensure you provide a valid `--obo` file that contains the mapping from GO IDs to names. If the input file itself contains descriptions, the converter will preserve them; otherwise it will fill missing ones from the obo file.
 
-如果您在研究中使用了本工具，请引用：
+## Citation
+
+If you use this tool in your research, please cite:
 
 > [Sun Mintao]. *GO Enrichment and Clustering Tool*. GitHub repository. https://github.com/SunMintao/go-enrich-tool
 
-## 许可证
+## License
 
-本项目采用 [MIT 许可证](LICENSE)，欢迎自由使用和修改。
+This project is licensed under the [MIT License](LICENSE). Feel free to use and modify it.
