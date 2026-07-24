@@ -16,6 +16,7 @@ import pandas as pd
 import re
 from collections import defaultdict
 import os
+from .utils import get_default_obo_path
 
 
 def detect_id_column(df):
@@ -105,6 +106,13 @@ def convert_any_go_annotation(input_path, output_path, obo_path='go-basic.obo'):
     Main conversion function: read arbitrary Excel file, extract GO IDs,
     use obo file to get descriptions, output standard format.
     """
+    # ---- Added: If the default path isn’t found, try the path inside the package ----
+    if obo_path == 'go-basic.obo' and not os.path.exists(obo_path):
+        default = get_default_obo_path()
+        if default:
+            obo_path = default
+            print(f"Using built-in obo file: {obo_path}")
+
     # Read input file
     try:
         df = pd.read_excel(input_path, engine='openpyxl')

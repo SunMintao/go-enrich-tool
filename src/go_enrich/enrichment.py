@@ -6,6 +6,7 @@ import requests
 import os
 import re
 from collections import defaultdict
+from .utils import get_default_obo_path   # new added
 
 # --------------------------- 1. Read GO annotation ---------------------------
 def read_go_annotation(file_path):
@@ -180,6 +181,11 @@ def run_enrichment(go_anno_file, gene_list_file, output_file, ontology='BP', use
     # Obtain GO classification
     go_namespace = None
     if use_obo:
+        if obo_path == 'go-basic.obo' and not os.path.exists(obo_path):
+            default = get_default_obo_path()
+            if default:
+                obo_path = default
+                print(f"Using built-in obo file: {obo_path}")
         try:
             obo_path = download_obo(local_path=obo_path)
             go_namespace = parse_obo_namespace(obo_path)

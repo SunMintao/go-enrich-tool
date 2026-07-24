@@ -5,6 +5,7 @@ General utility functions
 """
 
 import re
+import os
 
 def parse_obo_file(obo_path):
     """
@@ -36,3 +37,13 @@ def parse_obo_file(obo_path):
         if current_id and current_name and not is_obsolete:
             go_map[current_id] = current_name
     return go_map
+def get_default_obo_path():
+    """
+    Return the path to the built-in go-basic.obo file inside the package data directory.
+    Returns None if the file does not exist.
+    """
+    pkg_dir = os.path.dirname(os.path.abspath(__file__))
+    obo_path = os.path.join(pkg_dir, 'data', 'go-basic.obo')
+    if os.path.exists(obo_path):
+        return obo_path
+    return None

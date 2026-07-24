@@ -12,6 +12,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: pandas>=2.0.0
 Requires-Dist: numpy>=1.18.0
 Requires-Dist: matplotlib>=3.0.0
@@ -25,43 +26,40 @@ Requires-Dist: scipy>=1.4.0
 Requires-Dist: statsmodels>=0.11.0
 Requires-Dist: requests>=2.20.0
 Requires-Dist: openpyxl>=3.0.0
+Dynamic: license-file
 
 # GO Enrichment and Clustering Tool
 
+```markdown
 **GO Enrichment and Clustering Tool** is an integrated command-line tool for Gene Ontology (GO) enrichment analysis and clustering of enrichment results. It performs hypergeometric tests for enrichment and uses gene overlap-based similarity (Jaccard / Ochiai) to reduce dimensionality (UMAP / MDS / t‑SNE) and apply unsupervised clustering (Mean‑Shift / HDBSCAN) to the enriched GO terms. Multiple visualization charts and network files are generated to help researchers explore functional modules from a global perspective.
 
 ## Key Features
 
 - **GO annotation file format conversion**  
-  
   - Automatically identifies the gene ID column in Excel files and extracts all GO IDs.  
-  - Uses the GO basic ontology file (go-basic.obo) to retrieve standard term names for GO IDs, outputting a two‑column format (`ID`, `Annotation`) compatible with this tool.  
-  - Supports arbitrary column layouts and various delimiters (comma, pipe, semicolon, etc.) – no manual reformatting required.
+  - Uses the built-in GO basic ontology file (go-basic.obo) to retrieve standard term names for GO IDs, outputting a two‑column format (`ID`, `Annotation`) compatible with this tool.  
+  - Supports arbitrary column layouts and various delimiters (comma, pipe, semicolon, etc.) – no manual reformatting required.  
+  - **The GO ontology file is bundled with the package**, so you don't need to download or specify it manually.
 
 - **GO enrichment analysis**  
-  
   - Computes hypergeometric test \(p\)-values and Benjamini‑Hochberg correction from a local GO annotation Excel file.  
   - Allows specification of ontology sub‑ontologies (BP / CC / MF / ALL), automatically downloads and parses the GO basic ontology file (go‑basic.obo) to obtain namespace information.  
   - Output includes detailed information such as the list of associated genes (`All_index`).
 
 - **Dynamic filtering and redundancy merging**  
-  
   - Automatically filters significant terms based on adjusted \(p\)-value, gene count, and median of negative log‑\(p\).  
   - Merges redundant GO terms that share identical gene sets, keeping the term with the smallest \(p\)-value as the representative.
 
 - **Similarity matrix**  
-  
   - Computes Jaccard or Ochiai coefficients to construct a similarity/distance matrix based on actual gene overlap between terms.  
   - Supports multi‑processing parallel computation (automatically enabled when the number of terms > 100).
 
 - **Dimensionality reduction and clustering**  
-  
   - Dimensionality reduction methods: UMAP (default), MDS, t‑SNE.  
   - Clustering algorithms: Mean‑Shift (adaptive bandwidth), HDBSCAN.  
   - Silhouette coefficient evaluation for clustering quality, automatic identification of boundary points.
 
 - **Rich visualization outputs**  
-  
   - Cluster scatter plot, similarity heatmap, bubble chart, static/interactive network (Pyvis).  
   - Cluster‑specific word clouds (WordCloud).  
   - Export of Cytoscape‑compatible node and edge files.
@@ -107,7 +105,14 @@ Core dependencies are automatically installed (see `pyproject.toml` for details)
 ### 2. Convert any annotation file to the standard format (optional)
 
 ```bash
-go-enrich convert any_format.xlsx standard.xlsx --obo go-basic.obo
+go-enrich convert any_format.xlsx standard.xlsx
+```
+
+The tool automatically uses the bundled `go-basic.obo` file to fill in GO term names.  
+If you want to use a custom ontology file, you can still specify it with `--obo`:
+
+```bash
+go-enrich convert any_format.xlsx standard.xlsx --obo /path/to/your/go-basic.obo
 ```
 
 The generated `standard.xlsx` can then be directly used for enrichment analysis.
@@ -143,7 +148,7 @@ After execution, multiple files will be generated in the `results/` directory (s
 | `--output`    | No       | Output Excel file path (default: `go_enrichment_result.xlsx`).               |
 | `--ontology`  | No       | Ontology sub‑ontology: `BP`, `CC`, `MF`, `ALL` (default: `BP`).              |
 | `--use-obo`   | No       | Whether to download and use the obo file for namespace (enabled by default). |
-| `--obo-path`  | No       | Path to the obo file (default: `go-basic.obo`).                              |
+| `--obo-path`  | No       | Path to the obo file (default uses bundled file).                            |
 
 ### `cluster` subcommand
 
@@ -177,11 +182,11 @@ After execution, multiple files will be generated in the `results/` directory (s
 
 ### `convert` subcommand
 
-| Argument | Required | Description                                                                                                                    |
-| -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `input`  | Yes      | Input file path (supports arbitrary Excel formats).                                                                            |
-| `output` | Yes      | Output file path (standard‑format `.xlsx`).                                                                                    |
-| `--obo`  | No       | Path to the GO basic ontology file (default: `go-basic.obo`; `.txt` suffix is also allowed if the content matches obo format). |
+| Argument | Required | Description                                                                                                                 |
+| -------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `input`  | Yes      | Input file path (supports arbitrary Excel formats).                                                                         |
+| `output` | Yes      | Output file path (standard‑format `.xlsx`).                                                                                 |
+| `--obo`  | No       | Path to the GO basic ontology file. **By default, the tool uses the bundled `go-basic.obo` file**, so you rarely need this. |
 
 ## Output Files
 
@@ -202,8 +207,8 @@ After running the `cluster` subcommand, the following files are generated in the
 ## Complete Workflow Example
 
 ```bash
-# 1. Convert any annotation file (if needed)
-go-enrich convert my_annotation.xlsx standard.xlsx --obo go-basic.obo
+# 1. Convert any annotation file (the tool uses bundled obo automatically)
+go-enrich convert my_annotation.xlsx standard.xlsx
 
 # 2. Enrichment analysis
 go-enrich enrich --go-anno standard.xlsx --gene-list genes.xlsx --output enrich.xlsx --ontology ALL
@@ -228,7 +233,10 @@ A: This may occur when the number of terms is too small or similarity is general
 A: Confirm that `--use-obo` is enabled and your network is working (the tool will download `go-basic.obo` automatically). If it still fails, manually download the file and specify it with `--obo-path`.
 
 **Q4: Descriptions are missing after running `convert`?**  
-A: Ensure you provide a valid `--obo` file that contains the mapping from GO IDs to names. If the input file itself contains descriptions, the converter will preserve them; otherwise it will fill missing ones from the obo file.
+A: The tool automatically uses the bundled `go-basic.obo` file to fill in descriptions. If you're still missing descriptions, ensure that:
+
+- The GO IDs in your input file are valid (e.g., `GO:0001234`).
+- If you manually specified `--obo`, the file path is correct and contains the necessary mappings.
 
 ## Citation
 

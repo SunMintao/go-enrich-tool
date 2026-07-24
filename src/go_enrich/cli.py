@@ -39,7 +39,8 @@ def main():
                                help="GO ontology type, default BP")
     enrich_parser.add_argument("--use-obo", action="store_true", default=True,
                                help="Use GO basic ontology file to obtain classification information")
-    enrich_parser.add_argument("--obo-path", default="go-basic.obo", help="Local obo file path or download location")
+    enrich_parser.add_argument("--obo-path", default="go-basic.obo",
+                               help="Local obo file path or download location (default uses built-in file)")
 
     # ---------- cluster sub-command ----------
     cluster_parser = subparsers.add_parser("cluster", help="Cluster GO enrichment results")
@@ -83,7 +84,7 @@ def main():
     convert_parser.add_argument("input", help="Input file path (supports arbitrary Excel formats)")
     convert_parser.add_argument("output", help="Output file path (standard format .xlsx)")
     convert_parser.add_argument("--obo", default="go-basic.obo",
-                                help="GO basic ontology file path (obo format, default go-basic.obo; .txt suffix also accepted)")
+                                help="GO basic ontology file path (default uses built-in file)")
 
     args = parser.parse_args()
 

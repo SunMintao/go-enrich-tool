@@ -44,3 +44,6 @@ go-enrich = "go_enrich.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+go_enrich = ["data/*"]
