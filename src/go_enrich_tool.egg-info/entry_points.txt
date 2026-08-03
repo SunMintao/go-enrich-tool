@@ -1,2 +1,3 @@
 [console_scripts]
 go-enrich = go_enrich.cli:main
+go-enrich-gui = go_enrich.gui:main

@@ -41,6 +41,7 @@ Issues = "https://github.com/SunMintao/go-enrich-tool/issues"
 
 [project.scripts]
 go-enrich = "go_enrich.cli:main"
+go-enrich-gui = "go_enrich.gui:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

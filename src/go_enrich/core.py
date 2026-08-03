@@ -306,7 +306,7 @@ class GOTermClusteringAnalyzer:
                        marker='x', s=200, c='red', label='Centers')
         ax.set_xlabel('Dimension 1')
         ax.set_ylabel('Dimension 2')
-        ax.set_title('GO term clustering (Mean‑Shift)')
+        ax.set_title('GO term clustering (Mean Shift)')
         ax.legend()
         plt.tight_layout()
         plt.savefig(save_path, dpi=300)

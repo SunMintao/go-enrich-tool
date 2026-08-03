@@ -6,6 +6,7 @@ src/go_enrich/cli.py
 src/go_enrich/convert.py
 src/go_enrich/core.py
 src/go_enrich/enrichment.py
+src/go_enrich/gui.py
 src/go_enrich/utils.py
 src/go_enrich/data/__init__.py
 src/go_enrich/data/go-basic.obo
