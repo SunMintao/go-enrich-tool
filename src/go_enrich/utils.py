@@ -6,6 +6,7 @@ General utility functions
 
 import re
 import os
+import sys
 
 def parse_obo_file(obo_path):
     """
@@ -40,10 +41,17 @@ def parse_obo_file(obo_path):
 def get_default_obo_path():
     """
     Return the path to the built-in go-basic.obo file inside the package data directory.
-    Returns None if the file does not exist.
+    Handles PyInstaller onefile bundling (sys._MEIPASS). Returns None if not found.
     """
+    candidates = []
+    # PyInstaller onefile unpacks data files under sys._MEIPASS
+    base = getattr(sys, '_MEIPASS', None)
+    if base:
+        candidates.append(os.path.join(base, 'go_enrich', 'data', 'go-basic.obo'))
+    # Normal installed / source layout: <pkg_dir>/data/go-basic.obo
     pkg_dir = os.path.dirname(os.path.abspath(__file__))
-    obo_path = os.path.join(pkg_dir, 'data', 'go-basic.obo')
-    if os.path.exists(obo_path):
-        return obo_path
+    candidates.append(os.path.join(pkg_dir, 'data', 'go-basic.obo'))
+    for obo_path in candidates:
+        if os.path.exists(obo_path):
+            return obo_path
     return None

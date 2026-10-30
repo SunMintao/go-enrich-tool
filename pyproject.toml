@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "go-enrich-tool"
-version = "0.2.1"
+version = "0.3.0"
 description = "GO annotation download (NCBI), enrichment analysis, and clustering of enrichment results based on gene set overlap"
 authors = [
     {name = "Sun Mintao", email = "sunmintao@caas.cn"},
