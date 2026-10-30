@@ -1,0 +1,673 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+GO enrichment result clustering analysis (strict dependency version)
+- All dependencies must be installed, otherwise errors are raised.
+- Includes dynamic filtering, redundancy merging, Jaccard/Ochiai similarity,
+  UMAP dimensionality reduction, Mean‑Shift/HDBSCAN clustering,
+  silhouette coefficient evaluation, static/interactive network,
+  word cloud, and Cytoscape export.
+"""
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
+import seaborn as sns
+from sklearn.manifold import MDS, TSNE
+from sklearn.cluster import MeanShift
+from sklearn.metrics import silhouette_score, silhouette_samples
+from sklearn.neighbors import NearestNeighbors
+import umap
+import hdbscan
+from pyvis.network import Network
+from wordcloud import WordCloud
+import warnings
+import re
+from collections import Counter
+import os
+import itertools
+
+plt.rcParams['font.family'] = 'Arial'
+warnings.filterwarnings('ignore')
+
+
+class GOTermClusteringAnalyzer:
+    def __init__(self, file_path, sheet_name='Sheet1'):
+        self.file_path = file_path
+        self.sheet_name = sheet_name
+        self.df = None
+        self.gene_sets = None
+        self.similarity_matrix = None
+        self.distance_matrix = None
+        self.coords_2d = None
+        self.cluster_labels = None
+        self.cluster_centers = None
+        self.results_df = None
+        self.cluster_summary = None
+        self.silhouette_avg = None
+        self.parameters = {}
+        self.merged_terms_info = []
+
+    # ---------- 1. Data loading and preprocessing ----------
+    def load_data(self):
+        print(f"Loading data: {self.file_path}")
+        self.df = pd.read_excel(self.file_path, sheet_name=self.sheet_name)
+
+        def parse_genes(gene_string):
+            if pd.isna(gene_string) or gene_string == '':
+                return frozenset()
+            return frozenset(gene_string.strip().split(';'))
+
+        self.df['Gene_Set'] = self.df['All_index'].apply(parse_genes)
+        self.df = self.df[self.df['Gene_Set'].apply(len) > 0].reset_index(drop=True)
+        print(f"Raw GO terms count: {len(self.df)}")
+
+        empty_ratio = (self.df['All_index'].isna() | (self.df['All_index'] == '')).mean()
+        if empty_ratio > 0.3:
+            print(f"Warning: {empty_ratio:.1%} of All_index are empty, please check input file.")
+
+        mismatch = (self.df['Count_all'] != self.df['Gene_Set'].apply(len)).sum()
+        if mismatch > 0:
+            print(f"Warning: {mismatch} rows have Count_all inconsistent with actual gene set size; automatically corrected.")
+            self.df['Count_all'] = self.df['Gene_Set'].apply(len)
+
+        if self.df['GO'].duplicated().any():
+            self.df = self.df.sort_values('P-value').drop_duplicates('GO').reset_index(drop=True)
+            print("Removed duplicate GO IDs.")
+        return self
+
+    def filter_terms_dynamic(self, p_cutoff=0.05, min_genes=5, logp_median_ratio=True,
+                             keep_top_n=15, auto_fallback=True, p_value_type='adjusted'):
+        """
+        Dynamically filter GO terms.
+        p_value_type: 'adjusted' or 'raw' - which p-value column to use for filtering.
+        """
+        print("Dynamically filtering GO terms...")
+        # Select p-value column
+        if p_value_type == 'adjusted':
+            p_col = 'Adjusted P-value'
+        elif p_value_type == 'raw':
+            p_col = 'P-value'
+        else:
+            raise ValueError("p_value_type must be 'adjusted' or 'raw'")
+
+        mask = (self.df[p_col] < p_cutoff) & (self.df['Count_all'] >= min_genes)
+        if logp_median_ratio:
+            neg_logp = -np.log10(self.df['P-value'].clip(lower=1e-300))
+            median_logp = neg_logp.median()
+            mask = mask & (neg_logp > median_logp)
+        keep_idx = self.df[mask].index
+        if len(keep_idx) < 3 and auto_fallback:
+            # Fallback uses raw P-value (more lenient)
+            mask2 = self.df['P-value'] < p_cutoff
+            keep_idx = self.df[mask2].index
+            if len(keep_idx) < 3:
+                keep_idx = self.df.nsmallest(keep_top_n, 'P-value').index
+                print(f"Not enough significant terms, taking top {keep_top_n} by P-value")
+        self.df = self.df.loc[keep_idx].reset_index(drop=True)
+        print(f"Retained {len(self.df)} terms after filtering")
+        self.parameters['filter'] = {
+            'p_cutoff': p_cutoff,
+            'min_genes': min_genes,
+            'logp_median_ratio': logp_median_ratio,
+            'keep_top_n': keep_top_n,
+            'final_count': len(self.df),
+            'p_value_type': p_value_type
+        }
+        return self
+
+    def merge_identical_sets(self):
+        print("Checking and merging identical gene sets...")
+        set_to_indices = {}
+        for idx, row in self.df.iterrows():
+            fs = row['Gene_Set']
+            set_to_indices.setdefault(fs, []).append(idx)
+        to_keep = []
+        self.merged_terms_info = []
+        for fs, indices in set_to_indices.items():
+            if len(indices) == 1:
+                to_keep.append(indices[0])
+            else:
+                sub_df = self.df.loc[indices]
+                best_idx = sub_df['P-value'].idxmin()
+                to_keep.append(best_idx)
+                others = [i for i in indices if i != best_idx]
+                merged_ids = sub_df.loc[others, 'GO'].tolist()
+                self.merged_terms_info.append({
+                    'representative_GO': sub_df.loc[best_idx, 'GO'],
+                    'merged_GOs': ','.join(merged_ids),
+                    'description': sub_df.loc[best_idx, 'Description']
+                })
+                print(f"  Merged {len(others)} terms: {sub_df.loc[best_idx, 'GO']} kept, merged {merged_ids}")
+        if to_keep:
+            self.df = self.df.loc[to_keep].reset_index(drop=True)
+        self.df['Merged_GOs'] = ''
+        for info in self.merged_terms_info:
+            rep_go = info['representative_GO']
+            self.df.loc[self.df['GO'] == rep_go, 'Merged_GOs'] = info['merged_GOs']
+        print(f"After merging, {len(self.df)} non-redundant terms remain")
+        self.parameters['merged'] = {'n_merged_groups': len(self.merged_terms_info)}
+        return self
+
+    # ---------- 2. Similarity calculation ----------
+    def calculate_similarity(self, metric='jaccard', parallel=True):
+        n = len(self.df)
+        if n == 0:
+            raise ValueError("No valid GO terms")
+        print(f"Computing {metric} similarity matrix (n={n})...")
+        self.gene_sets = [row['Gene_Set'] for _, row in self.df.iterrows()]
+
+        def sim_pair(i, j):
+            si = self.gene_sets[i]
+            sj = self.gene_sets[j]
+            inter = len(si & sj)
+            if metric == 'jaccard':
+                union = len(si | sj)
+                return inter / union if union > 0 else 0.0
+            elif metric == 'ochiai':
+                denom = np.sqrt(len(si) * len(sj))
+                return inter / denom if denom > 0 else 0.0
+            else:
+                raise ValueError("metric must be 'jaccard' or 'ochiai'")
+
+        self.similarity_matrix = np.eye(n)
+        if parallel and n > 100:
+            try:
+                from multiprocessing import Pool
+                pairs = list(itertools.combinations(range(n), 2))
+                with Pool() as pool:
+                    results = pool.starmap(sim_pair, pairs)
+                for (i, j), val in zip(pairs, results):
+                    self.similarity_matrix[i, j] = val
+                    self.similarity_matrix[j, i] = val
+                print("Parallel computation finished")
+            except Exception as e:
+                print(f"Parallel computation failed, falling back to serial: {e}")
+                self._calc_similarity_serial(sim_pair, n)
+        else:
+            self._calc_similarity_serial(sim_pair, n)
+
+        self.distance_matrix = 1 - self.similarity_matrix
+        self.parameters['similarity'] = {'metric': metric, 'n_terms': n}
+        return self
+
+    def _calc_similarity_serial(self, sim_pair_func, n):
+        for i in range(n):
+            for j in range(i+1, n):
+                sim = sim_pair_func(i, j)
+                self.similarity_matrix[i, j] = sim
+                self.similarity_matrix[j, i] = sim
+
+    def save_similarity_outputs(self, output_prefix='go_clustering'):
+        """Save similarity matrix to xlsx and summary statistics to txt."""
+        if self.similarity_matrix is None:
+            raise ValueError("Please run calculate_similarity() first")
+        n = len(self.df)
+        go_ids = self.df['GO'].tolist()
+        sim_df = pd.DataFrame(self.similarity_matrix, index=go_ids, columns=go_ids)
+        xlsx_path = f"{output_prefix}_similarity_matrix.xlsx"
+        sim_df.to_excel(xlsx_path, engine='openpyxl')
+        print(f"Similarity matrix saved: {xlsx_path}")
+
+        upper = self.similarity_matrix[np.triu_indices(n, k=1)]
+        mean_sim = float(np.mean(upper))
+        median_sim = float(np.median(upper))
+        p75_sim = float(np.percentile(upper, 75))
+        zero_pct = float((upper == 0).mean() * 100)
+        max_sim = float(np.max(upper))
+
+        txt_path = f"{output_prefix}_similarity_stats.txt"
+        with open(txt_path, 'w', encoding='utf-8') as f:
+            f.write(f"平均相似度为{mean_sim:.4f}，中位数为{median_sim:.4f}，"
+                    f"第75百分位数为{p75_sim:.4f}。约{zero_pct:.1f}%的术语对相似度为0"
+                    f"（无共享基因），而最大相似度达{max_sim:.4f}。\n")
+        print(f"Similarity statistics saved: {txt_path}")
+
+    # ---------- 3. Dimensionality reduction ----------
+    def embed_coords(self, method='umap', random_state=42, **kwargs):
+        print(f"Dimensionality reduction method: {method}")
+        n = len(self.df)
+        if method.lower() == 'mds':
+            mds = MDS(n_components=2, dissimilarity='precomputed',
+                      random_state=random_state, max_iter=3000, eps=1e-9)
+            self.coords_2d = mds.fit_transform(self.distance_matrix)
+        elif method.lower() == 'tsne':
+            tsne = TSNE(n_components=2, metric='precomputed',
+                        random_state=random_state, perplexity=min(30, n-1))
+            self.coords_2d = tsne.fit_transform(self.distance_matrix)
+        elif method.lower() == 'umap':
+            reducer = umap.UMAP(n_components=2, metric='precomputed',
+                                random_state=random_state, **kwargs)
+            self.coords_2d = reducer.fit_transform(self.distance_matrix)
+        else:
+            raise ValueError("method must be one of: mds, tsne, umap")
+        self.parameters['embedding'] = {'method': method, 'kwargs': kwargs}
+        return self
+
+    # ---------- 4. Clustering ----------
+    def estimate_bandwidth_knn(self, k=8):
+        nbrs = NearestNeighbors(n_neighbors=k).fit(self.coords_2d)
+        distances, _ = nbrs.kneighbors(self.coords_2d)
+        bandwidth = np.mean(distances[:, -1])
+        return bandwidth
+
+    def perform_clustering(self, cluster_method='meanshift', k_neighbors=8,
+                           min_bandwidth=0.3, hdbscan_min_cluster_size=3,
+                           auto_fallback=True):
+        if self.coords_2d is None:
+            raise ValueError("Please run embed_coords() first")
+        print(f"Clustering method: {cluster_method}")
+        if cluster_method == 'meanshift':
+            bandwidth = self.estimate_bandwidth_knn(k=k_neighbors)
+            if bandwidth < min_bandwidth:
+                bandwidth = min_bandwidth
+            print(f"Adaptive bandwidth: {bandwidth:.4f}")
+            ms = MeanShift(bandwidth=bandwidth, bin_seeding=True, cluster_all=True)
+            self.cluster_labels = ms.fit_predict(self.coords_2d)
+            self.cluster_centers = ms.cluster_centers_
+            unique = np.unique(self.cluster_labels)
+            print(f"Mean-Shift completed, {len(unique)} clusters")
+            if auto_fallback and len(unique) == 1 and len(self.df) > 5:
+                print("Warning: all points in one cluster, retrying with smaller bandwidth...")
+                ms2 = MeanShift(bandwidth=bandwidth*0.6, bin_seeding=True)
+                self.cluster_labels = ms2.fit_predict(self.coords_2d)
+                self.cluster_centers = ms2.cluster_centers_
+                print(f"Retry gave {len(np.unique(self.cluster_labels))} clusters")
+        elif cluster_method == 'hdbscan':
+            clusterer = hdbscan.HDBSCAN(min_cluster_size=hdbscan_min_cluster_size,
+                                        metric='euclidean')
+            self.cluster_labels = clusterer.fit_predict(self.coords_2d)
+            noise_mask = self.cluster_labels == -1
+            if noise_mask.any():
+                max_label = self.cluster_labels.max()
+                self.cluster_labels[noise_mask] = max_label + 1
+                print(f"Reassigned {noise_mask.sum()} noise points to new cluster {max_label+1}")
+            self.cluster_centers = None
+            print(f"HDBSCAN completed, {len(np.unique(self.cluster_labels))} clusters")
+        else:
+            raise ValueError("cluster_method must be 'meanshift' or 'hdbscan'")
+        self.parameters['clustering'] = {'method': cluster_method,
+                                         'n_clusters': len(np.unique(self.cluster_labels))}
+        return self
+
+    # ---------- 5. Quality evaluation ----------
+    def evaluate_clustering(self):
+        if self.cluster_labels is None:
+            raise ValueError("Please run clustering first")
+        if self.results_df is None:
+            raise ValueError("Please run compile_results() first to create results_df")
+        if len(np.unique(self.cluster_labels)) < 2:
+            self.silhouette_avg = -1
+            print("Cannot compute silhouette score (fewer than 2 clusters)")
+            return self
+        self.silhouette_avg = silhouette_score(self.distance_matrix, self.cluster_labels,
+                                               metric='precomputed')
+        print(f"Overall silhouette coefficient: {self.silhouette_avg:.4f}")
+        sil_vals = silhouette_samples(self.distance_matrix, self.cluster_labels,
+                                      metric='precomputed')
+        self.results_df['Silhouette'] = sil_vals
+        self.results_df['Is_Boundary'] = sil_vals < 0.1
+        self.parameters['quality'] = {'silhouette_score': self.silhouette_avg}
+        return self
+
+    # ---------- 6. Compile results ----------
+    def compile_results(self):
+        self.results_df = self.df.copy()
+        self.results_df['Cluster'] = self.cluster_labels
+        self.results_df['X_coord'] = self.coords_2d[:, 0]
+        self.results_df['Y_coord'] = self.coords_2d[:, 1]
+
+        cluster_summary_list = []
+        for cl in np.unique(self.cluster_labels):
+            idx = self.results_df[self.results_df['Cluster'] == cl].index.tolist()
+            size = len(idx)
+            if size > 1:
+                sub = self.similarity_matrix[np.ix_(idx, idx)]
+                intra_sim = np.mean(sub[np.triu_indices_from(sub, k=1)])
+            else:
+                intra_sim = 1.0
+            mean_p = self.results_df.loc[idx, 'Adjusted P-value'].mean()
+            cluster_summary_list.append({
+                'Cluster': cl,
+                'Size': size,
+                'Avg_Intra_Similarity': intra_sim,
+                'Mean_Adjusted_P': mean_p
+            })
+        self.cluster_summary = pd.DataFrame(cluster_summary_list)
+        return self
+
+    # ---------- 7. Visualization ----------
+    def plot_cluster_scatter(self, save_path='cluster_scatter.png'):
+        fig, ax = plt.subplots(figsize=(10, 8))
+        ax.scatter(self.coords_2d[:, 0], self.coords_2d[:, 1],
+                   c=self.cluster_labels, cmap='tab20', s=100,
+                   alpha=0.8, edgecolors='black')
+        if self.cluster_centers is not None:
+            ax.scatter(self.cluster_centers[:, 0], self.cluster_centers[:, 1],
+                       marker='x', s=200, c='red', label='Centers')
+        ax.set_xlabel('Dimension 1')
+        ax.set_ylabel('Dimension 2')
+        ax.set_title('GO term clustering (Mean‑Shift)')
+        ax.legend()
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=300)
+        plt.close()
+        print(f"Scatter plot saved: {save_path}")
+
+    def plot_similarity_heatmap(self, save_path='similarity_heatmap.png'):
+        order = np.argsort(self.cluster_labels)
+        sorted_mat = self.similarity_matrix[order][:, order]
+        fig, ax = plt.subplots(figsize=(12, 10))
+        im = ax.imshow(sorted_mat, cmap='YlOrRd', vmin=0, vmax=1)
+        pos = 0
+        for cl in np.unique(self.cluster_labels[order]):
+            cnt = np.sum(self.cluster_labels[order] == cl)
+            if cnt > 0:
+                ax.add_patch(plt.Rectangle((pos-0.5, pos-0.5), cnt, cnt,
+                                           linewidth=2, edgecolor='blue', facecolor='none'))
+                pos += cnt
+        plt.colorbar(im, label='Similarity')
+        ax.set_title('Similarity matrix (sorted by cluster)')
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=300)
+        plt.close()
+        print(f"Heatmap saved: {save_path}")
+
+    def plot_bubble_chart(self, save_path='bubble_chart.png', x_cap=10):
+        plot_df = self.results_df.copy()
+        plot_df['neg_log_p'] = -np.log10(plot_df['Adjusted P-value'].clip(lower=1e-300))
+        plot_df['neg_log_p_capped'] = plot_df['neg_log_p'].clip(upper=x_cap)
+        plot_df['capped'] = plot_df['neg_log_p'] > x_cap
+        plot_df['Short_Desc'] = plot_df['Description'].apply(
+            lambda s: (str(s)[:60] + '...') if isinstance(s, str) and len(s) > 63 else (str(s) if pd.notna(s) else '')
+        )
+        plot_df = plot_df.sort_values('Adjusted P-value')
+        n = len(plot_df)
+        fig_height = max(4, n*0.4+1)
+        fig, ax = plt.subplots(figsize=(6, fig_height))
+        clusters = np.unique(plot_df['Cluster'])
+        colors = plt.cm.tab20(np.linspace(0,1,len(clusters)))
+        color_dict = {cl: colors[i] for i,cl in enumerate(clusters)}
+        for i, (_, row) in enumerate(plot_df.iterrows()):
+            size = max(row['Count_all']*3, 5)
+            ax.scatter(row['neg_log_p_capped'], i, s=size, alpha=0.7,
+                       color=color_dict[row['Cluster']], edgecolors='black')
+            if row['capped']:
+                ax.annotate(f'({row["neg_log_p"]:.1f})', (row['neg_log_p_capped'], i),
+                            xytext=(3,0), textcoords='offset points', fontsize=7)
+        ax.set_yticks(range(n))
+        ax.set_yticklabels(plot_df['Short_Desc'])
+        ax.set_xlabel('-log10(Adjusted P-value)')
+        ax.set_title('Bubble chart')
+        ax.grid(axis='x', alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=300)
+        plt.close()
+        print(f"Bubble chart saved: {save_path}")
+
+    def plot_network_view(self, similarity_threshold=0.3, save_path='network_view.png'):
+        fig, ax = plt.subplots(figsize=(14, 10))
+        uniq = np.unique(self.cluster_labels)
+        colors = plt.cm.tab20(np.linspace(0,1,len(uniq)))
+        for cl, col in zip(uniq, colors):
+            idx = self.cluster_labels == cl
+            ax.scatter(self.coords_2d[idx,0], self.coords_2d[idx,1],
+                       s=120, color=col, label=f'Cluster {cl}', alpha=0.8)
+            ellipse = self._cluster_ellipse(self.coords_2d[idx], color=col)
+            if ellipse is not None:
+                ax.add_patch(ellipse)
+        n = len(self.df)
+        for i in range(n):
+            for j in range(i+1, n):
+                if self.similarity_matrix[i,j] > similarity_threshold:
+                    ax.plot([self.coords_2d[i,0], self.coords_2d[j,0]],
+                            [self.coords_2d[i,1], self.coords_2d[j,1]],
+                            'gray', alpha=0.3, linewidth=0.8)
+        for i, (x, y) in enumerate(self.coords_2d):
+            desc = self.results_df.iloc[i]['Description']
+            if pd.isna(desc):
+                desc = ''
+            else:
+                desc = str(desc)
+                if len(desc) > 40:
+                    desc = desc[:40] + '...'
+            ax.annotate(desc, (x, y),
+                        fontsize=7, ha='center', va='bottom',
+                        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.6))
+        ax.set_xlabel('Dimension 1')
+        ax.set_ylabel('Dimension 2')
+        ax.set_title(f'Network (sim > {similarity_threshold})')
+        ax.legend(bbox_to_anchor=(1.01, 1), loc='upper left')
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=300)
+        plt.close()
+        print(f"Network plot saved: {save_path}")
+
+    def _cluster_ellipse(self, pts, color, n_std=2.0):
+        """Return a dashed confidence ellipse enclosing the given 2D points."""
+        if len(pts) < 2:
+            return None
+        mean = pts.mean(axis=0)
+        cov = np.cov(pts, rowvar=False)
+        vals, vecs = np.linalg.eigh(cov)
+        order = vals.argsort()[::-1]
+        vals, vecs = vals[order], vecs[:, order]
+        theta = np.degrees(np.arctan2(*vecs[:, 0][::-1]))
+        width, height = 2 * n_std * np.sqrt(np.maximum(vals, 1e-12))
+        return Ellipse(xy=mean, width=width, height=height, angle=theta,
+                       edgecolor=color, facecolor='none', linestyle='--', linewidth=1.5)
+
+    def plot_interactive_network(self, similarity_threshold=0.3, save_path='network_interactive.html'):
+        net = Network(height="800px", width="100%", bgcolor="#ffffff")
+        for idx, row in self.results_df.iterrows():
+            title = f"GO:{row['GO']}<br>{row['Description']}<br>P={row['P-value']:.2e}<br>Cluster={row['Cluster']}"
+            desc = row['Description']
+            if pd.isna(desc):
+                label = ''
+            else:
+                desc = str(desc)
+                label = desc[:30] if len(desc) >= 30 else desc
+            net.add_node(idx, label=label, title=title,
+                         color=self._get_cluster_color(row['Cluster']), size=20)
+        for i in range(len(self.df)):
+            for j in range(i + 1, len(self.df)):
+                if self.similarity_matrix[i, j] > similarity_threshold:
+                    net.add_edge(i, j, value=self.similarity_matrix[i, j],
+                                 title=f"Sim: {self.similarity_matrix[i, j]:.2f}")
+        net.set_options('{"physics": {"enabled": true, "stabilization": {"iterations": 100}}}')
+        net.save_graph(save_path)
+        print(f"Interactive network saved: {save_path}")
+
+    def _get_cluster_color(self, cluster_id):
+        palette = plt.cm.tab20(np.linspace(0,1,20))
+        return '#%02x%02x%02x' % (int(palette[cluster_id%20][0]*255),
+                                  int(palette[cluster_id%20][1]*255),
+                                  int(palette[cluster_id%20][2]*255))
+
+    def plot_wordclouds(self, output_dir='wordclouds'):
+        os.makedirs(output_dir, exist_ok=True)
+        stopwords = set(['the','of','and','to','in','for','on','by','with','is','are','a','an','be','this','that',
+                         'activity','process','response','regulation','positive','negative','involved','mediated'])
+        for cl in np.unique(self.cluster_labels):
+            texts = self.results_df[self.results_df['Cluster'] == cl]['Description'].tolist()
+            # Safely handle empty values and convert to string
+            texts = [str(t) for t in texts if pd.notna(t)]
+            if not texts:  # Skip if no valid descriptions for this cluster
+                print(f"Warning: cluster {cl} has no valid description text, skipping word cloud")
+                continue
+            corpus = ' '.join(texts).lower()
+            corpus = re.sub(r'[^\w\s]', ' ', corpus)
+            wc = WordCloud(width=800, height=400, background_color='white',
+                           stopwords=stopwords, max_words=50).generate(corpus)
+            plt.figure(figsize=(10,5))
+            plt.imshow(wc, interpolation='bilinear')
+            plt.axis('off')
+            plt.title(f'Cluster {cl} Word Cloud')
+            plt.savefig(f"{output_dir}/cluster_{cl}_wordcloud.png", dpi=300)
+            plt.close()
+        print(f"Word clouds saved to {output_dir}")
+
+    def _cluster_keywords(self, sub_df, top_n=5):
+        """Return 3-5 most frequent words across a cluster's descriptions."""
+        stopwords = set(['the', 'of', 'and', 'to', 'in', 'for', 'on', 'by', 'with', 'is', 'are', 'a', 'an',
+                         'be', 'this', 'that', 'activity', 'process', 'response', 'regulation', 'positive',
+                         'negative', 'involved', 'mediated'])
+        texts = [str(t).lower() for t in sub_df['Description'] if pd.notna(t)]
+        words = []
+        for t in texts:
+            words.extend(re.findall(r'[a-z0-9]+', t))
+        counts = Counter(w for w in words if len(w) > 2 and w not in stopwords)
+        top = counts.most_common(top_n)
+        return ' | '.join(w for w, _ in top)
+
+    def plot_cluster_bubble(self, save_path='cluster_bubble.png'):
+        clusters = sorted(np.unique(self.cluster_labels))
+        n_terms = []
+        n_genes = []
+        labels = []
+        for cl in clusters:
+            sub = self.results_df[self.results_df['Cluster'] == cl]
+            n_terms.append(len(sub))
+            gene_union = set()
+            for gs in sub['Gene_Set']:
+                gene_union |= gs
+            n_genes.append(len(gene_union))
+            label = self._cluster_keywords(sub)
+            labels.append(label if label else f'Cluster {cl}')
+        colors = plt.cm.tab20(np.linspace(0, 1, len(clusters)))
+        y = np.arange(len(clusters))
+        sizes = np.array(n_genes, dtype=float)
+        sizes = 80 + (sizes - sizes.min()) / (sizes.max() - sizes.min() + 1e-9) * 920
+        fig, ax = plt.subplots(figsize=(10, max(4, len(clusters) * 0.6 + 1)))
+        ax.scatter(n_terms, y, s=sizes, c=colors, alpha=0.7, edgecolors='black')
+        for xi, yi, g in zip(n_terms, y, n_genes):
+            ax.annotate(str(g), (xi, yi), textcoords='offset points',
+                        xytext=(0, 8), ha='center', fontsize=8)
+        ax.set_yticks(y)
+        ax.set_yticklabels(labels)
+        ax.set_xlabel('Number of GO terms')
+        ax.set_ylabel('Cluster')
+        ax.set_title('Cluster summary (bubble size = number of genes)')
+        ax.grid(axis='x', alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=300)
+        plt.close()
+        print(f"Cluster bubble chart saved: {save_path}")
+
+    # ---------- 8. Output results ----------
+    def save_results(self, output_path='clustering_results.xlsx'):
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            self.results_df[['GO','Description','P-value','Adjusted P-value','Cluster','Silhouette','Is_Boundary',
+                             'X_coord','Y_coord','Count_all','Merged_GOs','Gene_Set','All_index']].to_excel(
+                writer, sheet_name='Clustering_Results', index=False)
+            self.cluster_summary.to_excel(writer, sheet_name='Cluster_Summary', index=False)
+            param_df = pd.DataFrame([(k,str(v)) for k,v in self.parameters.items()], columns=['Parameter','Value'])
+            param_df.to_excel(writer, sheet_name='Parameters', index=False)
+            if self.merged_terms_info:
+                merged_df = pd.DataFrame(self.merged_terms_info)
+                merged_df.to_excel(writer, sheet_name='Merged_Terms', index=False)
+        print(f"Results saved to {output_path}")
+
+    def _top_terms_by_score(self, top_n=10):
+        df = self.results_df.copy()
+        neg_log_p = -np.log10(df['Adjusted P-value'].clip(lower=1e-300))
+        df['neg_log_p'] = neg_log_p
+        df['score'] = neg_log_p * np.log1p(df['Count_all'])
+        return df.sort_values('score', ascending=False).head(top_n)
+
+    def save_top10_terms(self, save_path='top10_go_terms.xlsx', top_n=10):
+        top = self._top_terms_by_score(top_n)
+        out_cols = ['GO', 'Description', 'P-value', 'Adjusted P-value', 'Count_all', 'Cluster', 'score']
+        top[out_cols].to_excel(save_path, index=False, engine='openpyxl')
+        print(f"Top {top_n} GO terms saved: {save_path}")
+        return top
+
+    def plot_top10_bubble(self, save_path='top10_bubble.png', top_n=10):
+        top = self._top_terms_by_score(top_n).sort_values('Adjusted P-value')
+        y = range(len(top))
+        sizes = top['Count_all'].astype(float)
+        sizes = 100 + (sizes - sizes.min()) / (sizes.max() - sizes.min() + 1e-9) * 800
+        fig, ax = plt.subplots(figsize=(9, max(4, len(top) * 0.45 + 1)))
+        sc = ax.scatter(top['neg_log_p'], y, s=sizes, c=top['neg_log_p'],
+                        cmap='viridis', alpha=0.8, edgecolors='black')
+        for xi, yi, cnt in zip(top['neg_log_p'], y, top['Count_all']):
+            ax.annotate(str(int(cnt)), (xi, yi), textcoords='offset points',
+                        xytext=(6, 0), va='center', fontsize=8)
+        ax.set_yticks(list(y))
+        ax.set_yticklabels(top['Description'].tolist())
+        ax.set_xlabel('-log10(Adjusted P-value)')
+        cbar = plt.colorbar(sc, ax=ax)
+        cbar.set_label('-log10(Adjusted P-value)')
+        ax.set_title('Top GO terms bubble chart')
+        ax.grid(axis='x', alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=300)
+        plt.close()
+        print(f"Top {top_n} bubble chart saved: {save_path}")
+
+    def export_cytoscape(self, similarity_threshold=0.3,
+                         node_file='cytoscape_nodes.txt', edge_file='cytoscape_edges.txt'):
+        nodes = self.results_df[['GO','Description','Cluster','Count_all','Adjusted P-value']].copy()
+        nodes['neg_log10p'] = -np.log10(nodes['Adjusted P-value'].clip(lower=1e-300))
+        nodes.to_csv(node_file, sep='\t', index=False)
+        edges = []
+        n = len(self.df)
+        for i in range(n):
+            for j in range(i+1, n):
+                sim = self.similarity_matrix[i,j]
+                if sim > similarity_threshold:
+                    edges.append([self.df.iloc[i]['GO'], self.df.iloc[j]['GO'], sim])
+        pd.DataFrame(edges, columns=['GO_A','GO_B','Similarity']).to_csv(edge_file, sep='\t', index=False)
+        print(f"Cytoscape files: {node_file}, {edge_file}")
+
+
+def run_clustering(input_file, sheet_name='Sheet1', output_prefix='go_clustering',
+                   p_cutoff=0.05, min_genes=3, logp_median_ratio=True, keep_top_n=15,
+                   merge_identical=True, similarity_metric='jaccard', parallel=True,
+                   embed_method='umap', random_state=42, cluster_method='meanshift',
+                   k_neighbors=8, min_bandwidth=0.3, hdbscan_min_cluster_size=3,
+                   auto_fallback=True, similarity_threshold=0.3, no_plots=False,
+                   wordcloud_dir='wordclouds', export_cytoscape=True,
+                   p_value_type='adjusted'):   # 新增参数
+    """Cluster GO enrichment results and generate multiple output files."""
+    analyzer = GOTermClusteringAnalyzer(input_file, sheet_name=sheet_name)
+    analyzer.load_data()
+    analyzer.filter_terms_dynamic(p_cutoff=p_cutoff, min_genes=min_genes,
+                                  logp_median_ratio=logp_median_ratio,
+                                  keep_top_n=keep_top_n,
+                                  p_value_type=p_value_type)   # 传递
+    if merge_identical:
+        analyzer.merge_identical_sets()
+    analyzer.calculate_similarity(metric=similarity_metric, parallel=parallel)
+    analyzer.save_similarity_outputs(output_prefix=output_prefix)
+    analyzer.embed_coords(method=embed_method, random_state=random_state)
+    analyzer.perform_clustering(cluster_method=cluster_method,
+                                k_neighbors=k_neighbors,
+                                min_bandwidth=min_bandwidth,
+                                hdbscan_min_cluster_size=hdbscan_min_cluster_size,
+                                auto_fallback=auto_fallback)
+    analyzer.compile_results()
+    analyzer.evaluate_clustering()
+    if not no_plots:
+        analyzer.plot_cluster_scatter(f"{output_prefix}_scatter.png")
+        analyzer.plot_similarity_heatmap(f"{output_prefix}_heatmap.png")
+        analyzer.plot_bubble_chart(f"{output_prefix}_bubble.png")
+        analyzer.plot_network_view(similarity_threshold=similarity_threshold,
+                                   save_path=f"{output_prefix}_network.png")
+        analyzer.plot_cluster_bubble(f"{output_prefix}_cluster_bubble.png")
+        analyzer.plot_top10_bubble(f"{output_prefix}_top10_bubble.png")
+        analyzer.plot_interactive_network(similarity_threshold=similarity_threshold,
+                                          save_path=f"{output_prefix}_network.html")
+        analyzer.plot_wordclouds(output_dir=f"{output_prefix}_{wordcloud_dir}")
+    analyzer.save_results(f"{output_prefix}_results.xlsx")
+    analyzer.save_top10_terms(f"{output_prefix}_top10_go_terms.xlsx")
+    if export_cytoscape:
+        analyzer.export_cytoscape(similarity_threshold=similarity_threshold,
+                                  node_file=f"{output_prefix}_cytoscape_nodes.txt",
+                                  edge_file=f"{output_prefix}_cytoscape_edges.txt")
+
+
+
+
+
