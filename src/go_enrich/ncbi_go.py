@@ -7,8 +7,8 @@ Supported source: NCBI RefSeq plant genomes
     https://ftp.ncbi.nlm.nih.gov/genomes/refseq/plant/{species}/
       annotation_releases/{assembly}/{assembly}_gene_ontology.gaf.gz
 
-The converted standard file uses NCBI gene IDs (the GAF "DB Object ID" column),
-so it only supports gene IDs in the NCBI RefSeq namespace.
+The converted standard file uses gene symbols (the GAF "DB Object Symbol" column),
+falling back to the NCBI gene ID (GAF "DB Object ID") when the symbol is empty.
 """
 
 import os
@@ -98,7 +98,7 @@ def download_gaf(gaf_url, output_dir='.'):
 
 
 def parse_gaf(gaf_path):
-    """Parse a GAF 2.x file into {gene_id: set(go_ids)}, skipping NOT annotations."""
+    """Parse a GAF 2.x file into {gene: set(go_ids)}, keyed by Symbol (fallback GeneID), skipping NOT annotations."""
     gene2go = {}
     opener = gzip.open if str(gaf_path).endswith('.gz') else open
     with opener(gaf_path, 'rt', encoding='utf-8') as f:
@@ -108,14 +108,15 @@ def parse_gaf(gaf_path):
             cols = line.rstrip('\n').split('\t')
             if len(cols) < 5:
                 continue
-            gene_id = cols[1].strip()
+            # GAF 2.x columns: 0=DB, 1=DB Object ID (GeneID), 2=DB Object Symbol, 3=Qualifier, 4=GO ID
+            gene = cols[2].strip() or cols[1].strip()
             go_id = cols[4].strip()
             qualifiers = [q.strip() for q in cols[3].split('|')] if cols[3].strip() else []
-            if not gene_id or not go_id.startswith('GO:'):
+            if not gene or not go_id.startswith('GO:'):
                 continue
             if 'NOT' in qualifiers:
                 continue
-            gene2go.setdefault(gene_id, set()).add(go_id)
+            gene2go.setdefault(gene, set()).add(go_id)
     return gene2go
 
 

@@ -8,7 +8,7 @@
   
   - Downloads the GO annotation (GAF) file for a species by its Latin name from the NCBI RefSeq plant FTP site (`https://ftp.ncbi.nlm.nih.gov/genomes/refseq/plant/`).
   - Automatically locates the latest `annotation_releases` assembly and its `*_gene_ontology.gaf.gz` file, then converts it to the standard two-column format (`ID`, `Annotation`).
-  - Lists all available plant species with `--list-species`; the converted file uses NCBI gene IDs.
+  - Lists all available plant species with `--list-species`; the converted file uses gene symbols (falling back to NCBI gene IDs when a symbol is missing).
 
 - **GO annotation file format conversion**
   
@@ -86,7 +86,7 @@ Core dependencies are installed automatically (see `pyproject.toml` for details)
   Must contain at least two columns: `ID` (gene identifier) and `Annotation` (GO annotations in the format `GO:xxxxxx,description`; multiple entries separated by semicolons).
   If your annotation file uses a different format, use the `convert` subcommand to standardise it (see below).
   
-  If you don't have an annotation file yet, download one directly from NCBI RefSeq and convert it automatically (the result uses NCBI gene IDs):
+  If you don't have an annotation file yet, download one directly from NCBI RefSeq and convert it automatically (the result uses gene symbols):
   
   ```bash
   go-enrich download-go Solanum_lycopersicum --output go_annotation.xlsx
@@ -185,7 +185,7 @@ After execution, multiple files are generated in the `results/` directory (see t
 
 ### `download-go` subcommand
 
-Downloads the GO annotation (GAF) file for a species from the NCBI RefSeq plant FTP site and converts it to the standard two-column format (`ID`, `Annotation`). The resulting `ID` column uses NCBI gene IDs.
+Downloads the GO annotation (GAF) file for a species from the NCBI RefSeq plant FTP site and converts it to the standard two-column format (`ID`, `Annotation`). The resulting `ID` column uses gene symbols (falling back to NCBI gene IDs when a symbol is missing).
 
 | Argument         | Required | Description                                                                            |
 | ---------------- | -------- | -------------------------------------------------------------------------------------- |
